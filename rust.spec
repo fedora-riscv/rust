@@ -4,9 +4,14 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%bcond_with bootstrap
+%bcond_without bootstrap
 %global bootstrap_channel 1.10.0
 %global bootstrap_date 2016-07-05
+
+%if 0%{?rhel}
+%global _with_bundled_llvm 1
+%endif
+%bcond_with bundled_llvm
 
 # Use "rebuild" when building with a distro rustc of the same version.
 # Turn this off when the distro has the prior release, matching bootstrap.
@@ -22,7 +27,7 @@
 
 Name:           rust
 Version:        1.11.0
-Release:        3%{?dist}
+Release:        3%{?dist}.1
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -57,11 +62,15 @@ Patch1:         rust-1.11.0-no-bootstrap-download.patch
 # merged for 1.13.0
 Patch2:         rust-pr35814-armv7-no-neon.patch
 
-BuildRequires:  make
+%if 0%{?rhel}
+BuildRequires:  cmake3
+%else
 BuildRequires:  cmake
+%endif
+
+BuildRequires:  make
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
-BuildRequires:  llvm-devel
 BuildRequires:  zlib-devel
 BuildRequires:  python2
 BuildRequires:  curl
@@ -79,6 +88,12 @@ BuildRequires:  %{name} >= %{bootstrap_channel}
 # make check: src/test/run-pass/wait-forked-but-failed-child.rs
 BuildRequires:  /usr/bin/ps
 
+%if %with bundled_llvm
+Provides:       bundled(llvm) = 3.8
+Provides:       bundled(compiler-rt) = 3.8
+%else
+BuildRequires:  llvm-devel
+
 # Rust started using cmake for its bundled compiler-rt, but this requires
 # llvm-static to be installed.  But then llvm-config starts printing flags
 # for static linkage, with no way to force it shared.
@@ -92,6 +107,8 @@ Provides:       bundled(compiler-rt) = 3.8
 %global clang_builtins %{_libdir}/clang/3.8.0/lib/libclang_rt.builtins-armhf.a
 %else
 %global clang_builtins %{_libdir}/clang/3.8.0/lib/libclang_rt.builtins-%{_target_cpu}.a
+%endif
+
 %endif
 
 # TODO: work on unbundling these!
@@ -151,8 +168,11 @@ its standard library.
 %patch2 -p1 -b .no-neon
 
 # unbundle
-rm -rf src/llvm/ src/jemalloc/
+rm -rf src/jemalloc/
+%if %without bundled_llvm
+rm -rf src/llvm/
 rm -rf src/compiler-rt/
+%endif
 
 # extract bundled licenses for packaging
 cp src/rt/hoedown/LICENSE src/rt/hoedown/LICENSE-hoedown
@@ -179,6 +199,10 @@ sed -i.nomips -e '/target=mips/,+1s/^/# unsupported /' \
 sed -i.libdir -e '/^HLIB_RELATIVE/s/lib$/$$(CFG_LIBDIR_RELATIVE)/' mk/main.mk
 %endif
 
+%if 0%{?rhel}
+sed -i.cmake -e 's/CFG_CMAKE cmake/&3/' configure
+%endif
+
 %if %with bootstrap
 mkdir -p dl/
 cp -t dl/ %{?SOURCE1} %{?SOURCE2} %{?SOURCE3} %{?SOURCE4}
@@ -189,14 +213,16 @@ cp -t dl/ %{?SOURCE1} %{?SOURCE2} %{?SOURCE3} %{?SOURCE4}
 %configure --disable-option-checking \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
   %{!?with_bootstrap:--enable-local-rust --local-rust-root=%{_prefix} %{?with_rebuild:--enable-local-rebuild}} \
-  --llvm-root=%{_prefix} --disable-codegen-tests \
+  %{!?with_bundled_llvm:--llvm-root=%{_prefix} --disable-codegen-tests} \
   --disable-jemalloc \
   --disable-rpath \
   --enable-debuginfo \
   --release-channel=%{channel}
 
+%if %without bundled_llvm
 # Bypass the compiler-rt build -- see above.
 cp %{clang_builtins} ./%{rust_triple}/rt/libcompiler-rt.a
+%endif
 
 %make_build VERBOSE=1
 
@@ -273,6 +299,9 @@ make check-lite VERBOSE=1 -k || echo "make check-lite exited with code $?"
 
 
 %changelog
+* Mon Sep 19 2016 Josh Stone <jistone@redhat.com> - 1.11.0-3.1
+- Bootstrap el7, with bundled llvm
+
 * Sat Sep 03 2016 Josh Stone <jistone@redhat.com> - 1.11.0-3
 - Rebuild without bootstrap binaries.
 

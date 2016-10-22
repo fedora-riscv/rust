@@ -4,7 +4,7 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%bcond_without bootstrap
+%bcond_with bootstrap
 %global bootstrap_channel 1.11.0
 %global bootstrap_date 2016-08-16
 
@@ -30,7 +30,7 @@
 
 Name:           rust
 Version:        1.12.1
-Release:        1%{?dist}
+Release:        1%{?dist}.1
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -311,6 +311,9 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %changelog
+* Sat Oct 22 2016 Josh Stone <jistone@redhat.com> - 1.12.1-1.1
+- Rebuild without bootstrap binaries.
+
 * Sat Oct 22 2016 Josh Stone <jistone@redhat.com> - 1.12.1-1
 - Update to 1.12.1.
 - Merge package changes from rawhide.

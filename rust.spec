@@ -5,29 +5,32 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 %bcond_with bootstrap
-%global bootstrap_channel 1.10.0
-%global bootstrap_date 2016-07-05
+%global bootstrap_channel 1.11.0
+%global bootstrap_date 2016-08-16
+
+# We generally don't want llvm-static present at all, since llvm-config will
+# make us link statically.  But we can opt in, e.g. to aid LLVM rebases.
+%bcond_with llvm_static
 
 %if 0%{?rhel}
 %global _with_bundled_llvm 1
 %endif
 %bcond_with bundled_llvm
 
-# Use "rebuild" when building with a distro rustc of the same version.
-# Turn this off when the distro has the prior release, matching bootstrap.
-# Note, 1.12 will be able to autodetect this via PR34779.
-%bcond_without rebuild
 
-# The script for minidebuginfo copies symbols and *notes* into a "mini"
-# ELF object compressed into the .gnu_debugdata section.  This includes our
-# relatively large .note.rustc metadata, bloating every library.  Eventually
-# that metadata should be stripped beforehand -- see rust #23366 and #26764.
-# Note, 1.12 will move to unallocated data via PR35409, then can be stripped.
+# Rust 1.12 metadata is now unallocated data (.rustc), and in theory it should
+# be fine to strip this entirely, since we don't want to expose Rust's unstable
+# ABI for linking.  However, eu-strip was then clobbering .dynsym when it tried
+# to remove the rust_metadata symbol referencing .rustc (rhbz1380961).
+# So for unfixed elfutils, we'll leave .rustc alone and only strip debuginfo.
+%if 0%{?fedora} < 25
+%global _find_debuginfo_opts -g
 %undefine _include_minidebuginfo
+%endif
 
 Name:           rust
-Version:        1.11.0
-Release:        3%{?dist}.2
+Version:        1.12.1
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -45,22 +48,23 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}-src.tar.gz
 Source1:        %{bootstrap_base}-x86_64-unknown-linux-gnu.tar.gz
 Source2:        %{bootstrap_base}-i686-unknown-linux-gnu.tar.gz
 Source3:        %{bootstrap_base}-armv7-unknown-linux-gnueabihf.tar.gz
-#Source4:        %{bootstrap_base}-aarch64-unknown-linux-gnu.tar.gz
+Source4:        %{bootstrap_base}-aarch64-unknown-linux-gnu.tar.gz
 %endif
 
 # Only x86_64 and i686 are Tier 1 platforms at this time.
 # https://doc.rust-lang.org/stable/book/getting-started.html#tier-1
-ExclusiveArch:  x86_64 i686 armv7hl
+ExclusiveArch:  x86_64 i686 armv7hl aarch64
 %ifarch armv7hl
 %global rust_triple armv7-unknown-linux-gnueabihf
 %else
 %global rust_triple %{_target_cpu}-unknown-linux-gnu
 %endif
 
-Patch1:         rust-1.11.0-no-bootstrap-download.patch
-
 # merged for 1.13.0
-Patch2:         rust-pr35814-armv7-no-neon.patch
+Patch1:         rust-pr35814-armv7-no-neon.patch
+
+# merged for 1.14.0
+Patch2:         rust-pr36933-less-neon-again.patch
 
 %if 0%{?rhel}
 BuildRequires:  cmake3
@@ -71,45 +75,37 @@ BuildRequires:  cmake
 BuildRequires:  make
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
+BuildRequires:  ncurses-devel
 BuildRequires:  zlib-devel
 BuildRequires:  python2
 BuildRequires:  curl
 
-%if %without bootstrap
-%if %with rebuild
-BuildRequires:  %{name} < %{version}-%{release}
-BuildRequires:  %{name} >= %{version}
+%if %with llvm_static
+BuildRequires:  llvm-static
+BuildRequires:  libffi-devel
 %else
-BuildRequires:  %{name} < %{version}
-BuildRequires:  %{name} >= %{bootstrap_channel}
+# Make sure llvm-config doesn't see it.
+BuildConflicts: llvm-static
 %endif
-%endif
-
-# make check: src/test/run-pass/wait-forked-but-failed-child.rs
-BuildRequires:  /usr/bin/ps
 
 %if %with bundled_llvm
 Provides:       bundled(llvm) = 3.8
-Provides:       bundled(compiler-rt) = 3.8
 %else
 BuildRequires:  llvm-devel
+%endif
 
-# Rust started using cmake for its bundled compiler-rt, but this requires
-# llvm-static to be installed.  But then llvm-config starts printing flags
-# for static linkage, with no way to force it shared.
-#
-# For now, we'll bypass all that and just use the distro build.  Then in the
-# next release, Rust is moving toward a true fork of these builtins, with the
-# eventual goal of rewriting them in Rust proper.
-BuildRequires:  compiler-rt
-Provides:       bundled(compiler-rt) = 3.8
-%ifarch armv7hl
-%global clang_builtins %{_libdir}/clang/3.8.0/lib/libclang_rt.builtins-armhf.a
+
+%if %without bootstrap
+BuildRequires:  %{name} <= %{version}
+BuildRequires:  %{name} >= %{bootstrap_channel}
+%global local_rust_root %{_prefix}
 %else
-%global clang_builtins %{_libdir}/clang/3.8.0/lib/libclang_rt.builtins-%{_target_cpu}.a
+%global bootstrap_root rustc-%{bootstrap_channel}-%{rust_triple}
+%global local_rust_root %{_builddir}/%{rustc_package}/%{bootstrap_root}/rustc
 %endif
 
-%endif
+# make check needs "ps" for src/test/run-pass/wait-forked-but-failed-child.rs
+BuildRequires:  procps-ng
 
 # TODO: work on unbundling these!
 Provides:       bundled(hoedown) = 3.0.5
@@ -164,14 +160,18 @@ its standard library.
 %prep
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -b .no-download
-%patch2 -p1 -b .no-neon
+%if %with bootstrap
+find %{sources} -name '%{bootstrap_root}.tar.gz' -exec tar -xvzf '{}' ';'
+test -f '%{local_rust_root}/bin/rustc'
+%endif
+
+%patch1 -p1 -b .no-neon
+%patch2 -p1 -b .less-neon
 
 # unbundle
 rm -rf src/jemalloc/
 %if %without bundled_llvm
 rm -rf src/llvm/
-rm -rf src/compiler-rt/
 %endif
 
 # extract bundled licenses for packaging
@@ -203,26 +203,32 @@ sed -i.libdir -e '/^HLIB_RELATIVE/s/lib$/$$(CFG_LIBDIR_RELATIVE)/' mk/main.mk
 sed -i.cmake -e 's/CFG_CMAKE cmake/&3/' configure
 %endif
 
-%if %with bootstrap
-mkdir -p dl/
-cp -t dl/ %{?SOURCE1} %{?SOURCE2} %{?SOURCE3} %{?SOURCE4}
+%if %with llvm_static
+# Static linking to distro LLVM needs to add -lffi
+# https://github.com/rust-lang/rust/issues/34486
+sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
+  src/librustc_llvm/lib.rs
 %endif
 
 
 %build
+
+%ifarch aarch64
+%if %with bootstrap
+# Upstream binaries have a 4k-paged jemalloc, which breaks with Fedora 64k pages.
+# https://github.com/rust-lang/rust/issues/36994
+export MALLOC_CONF=lg_dirty_mult:-1
+%endif
+%endif
+
 %configure --disable-option-checking \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
-  %{!?with_bootstrap:--enable-local-rust --local-rust-root=%{_prefix} %{?with_rebuild:--enable-local-rebuild}} \
+  --enable-local-rust --local-rust-root=%{local_rust_root} \
   %{!?with_bundled_llvm:--llvm-root=%{_prefix} --disable-codegen-tests} \
   --disable-jemalloc \
   --disable-rpath \
   --enable-debuginfo \
   --release-channel=%{channel}
-
-%if %without bundled_llvm
-# Bypass the compiler-rt build -- see above.
-cp %{clang_builtins} ./%{rust_triple}/rt/libcompiler-rt.a
-%endif
 
 %make_build VERBOSE=1
 
@@ -239,6 +245,12 @@ find %{buildroot}/%{_libdir}/rustlib/ -type f -name '*.so' -exec rm -v '{}' '+'
 # The remaining shared libraries should be executable for debuginfo extraction.
 find %{buildroot}/%{_libdir}/ -type f -name '*.so' -exec chmod -v +x '{}' '+'
 
+# They also don't need the .rustc metadata anymore, so they won't support linking.
+# (but this needs the rhbz1380961 fix, or else eu-strip will clobber .dynsym)
+%if 0%{?fedora} >= 25
+find %{buildroot}/%{_libdir}/ -type f -name '*.so' -exec objcopy -R .rustc '{}' ';'
+%endif
+
 # FIXME: __os_install_post will strip the rlibs
 # -- should we find a way to preserve debuginfo?
 
@@ -250,7 +262,7 @@ rm -f %{buildroot}/%{_docdir}/%{name}/LICENSE-MIT
 
 # Sanitize the HTML documentation
 find %{buildroot}/%{_docdir}/%{name}/html -empty -delete
-find %{buildroot}/%{_docdir}/%{name}/html -type f -exec chmod -v -x '{}' '+'
+find %{buildroot}/%{_docdir}/%{name}/html -type f -exec chmod -x '{}' '+'
 
 # Move rust-gdb's python scripts so they're noarch
 mkdir -p %{buildroot}/%{_datadir}/%{name}
@@ -261,7 +273,7 @@ mv -v %{buildroot}/%{_libdir}/rustlib/etc %{buildroot}/%{_datadir}/%{name}/
 # Note, many of the tests execute in parallel threads,
 # so it's better not to use a parallel make here.
 # The results are not stable on koji, so mask errors and just log it.
-make check-lite VERBOSE=1 -k || echo "make check-lite exited with code $?"
+make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %post -p /sbin/ldconfig
@@ -299,6 +311,10 @@ make check-lite VERBOSE=1 -k || echo "make check-lite exited with code $?"
 
 
 %changelog
+* Thu Oct 20 2016 Josh Stone <jistone@redhat.com> - 1.12.1-1
+- Update to 1.12.1.
+- Merge package changes from rawhide.
+
 * Tue Sep 20 2016 Josh Stone <jistone@redhat.com> - 1.11.0-3.2
 - Rebuild without bootstrap binaries.
 

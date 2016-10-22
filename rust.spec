@@ -8,22 +8,24 @@
 %global bootstrap_channel 1.11.0
 %global bootstrap_date 2016-08-16
 
-# Rust metadata used to be an allocated note (.note.rustc) and minidebuginfo
-# caused an undesirable duplication, leaving the note AND putting it into
-# .gnu_debugdata, so we disabled minidebuginfo.
-#
+# We generally don't want llvm-static present at all, since llvm-config will
+# make us link statically.  But we can opt in, e.g. to aid LLVM rebases.
+%bcond_with llvm_static
+
+
 # Rust 1.12 metadata is now unallocated data (.rustc), and in theory it should
 # be fine to strip this entirely, since we don't want to expose Rust's unstable
-# ABI for linking.  However, while this works manually for me, when paired with
-# rpm stripping it makes the libraries fail to find their own dynamic symbols.
-# So for now, we'll leave .rustc alone and only let rpm-build strip debuginfo.
-# (This probably deserves a bug report against rpm-build/binutils/elfutils...)
+# ABI for linking.  However, eu-strip was then clobbering .dynsym when it tried
+# to remove the rust_metadata symbol referencing .rustc (rhbz1380961).
+# So for unfixed elfutils, we'll leave .rustc alone and only strip debuginfo.
+%if 0%{?fedora} < 25
 %global _find_debuginfo_opts -g
 %undefine _include_minidebuginfo
+%endif
 
 Name:           rust
-Version:        1.12.0
-Release:        2%{?dist}
+Version:        1.12.1
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -41,12 +43,12 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}-src.tar.gz
 Source1:        %{bootstrap_base}-x86_64-unknown-linux-gnu.tar.gz
 Source2:        %{bootstrap_base}-i686-unknown-linux-gnu.tar.gz
 Source3:        %{bootstrap_base}-armv7-unknown-linux-gnueabihf.tar.gz
-#Source4:        %{bootstrap_base}-aarch64-unknown-linux-gnu.tar.gz
+Source4:        %{bootstrap_base}-aarch64-unknown-linux-gnu.tar.gz
 %endif
 
 # Only x86_64 and i686 are Tier 1 platforms at this time.
 # https://doc.rust-lang.org/stable/book/getting-started.html#tier-1
-ExclusiveArch:  x86_64 i686 armv7hl
+ExclusiveArch:  x86_64 i686 armv7hl aarch64
 %ifarch armv7hl
 %global rust_triple armv7-unknown-linux-gnueabihf
 %else
@@ -56,17 +58,30 @@ ExclusiveArch:  x86_64 i686 armv7hl
 # merged for 1.13.0
 Patch1:         rust-pr35814-armv7-no-neon.patch
 
+# merged for 1.14.0
+Patch2:         rust-pr36933-less-neon-again.patch
+
 BuildRequires:  make
 BuildRequires:  cmake
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  llvm-devel
+BuildRequires:  ncurses-devel
 BuildRequires:  zlib-devel
 BuildRequires:  python2
 BuildRequires:  curl
 
+%if %with llvm_static
+BuildRequires:  llvm-static
+BuildRequires:  libffi-devel
+%else
+# Make sure llvm-config doesn't see it.
+BuildConflicts: llvm-static
+%endif
+
+
 %if %without bootstrap
-BuildRequires:  %{name} < %{version}-%{release}
+BuildRequires:  %{name} <= %{version}
 BuildRequires:  %{name} >= %{bootstrap_channel}
 %global local_rust_root %{_prefix}
 %else
@@ -136,6 +151,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %endif
 
 %patch1 -p1 -b .no-neon
+%patch2 -p1 -b .less-neon
 
 # unbundle
 rm -rf src/jemalloc/
@@ -166,8 +182,24 @@ sed -i.nomips -e '/target=mips/,+1s/^/# unsupported /' \
 sed -i.libdir -e '/^HLIB_RELATIVE/s/lib$/$$(CFG_LIBDIR_RELATIVE)/' mk/main.mk
 %endif
 
+%if %with llvm_static
+# Static linking to distro LLVM needs to add -lffi
+# https://github.com/rust-lang/rust/issues/34486
+sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
+  src/librustc_llvm/lib.rs
+%endif
+
 
 %build
+
+%ifarch aarch64
+%if %with bootstrap
+# Upstream binaries have a 4k-paged jemalloc, which breaks with Fedora 64k pages.
+# https://github.com/rust-lang/rust/issues/36994
+export MALLOC_CONF=lg_dirty_mult:-1
+%endif
+%endif
+
 %configure --disable-option-checking \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
   --enable-local-rust --local-rust-root=%{local_rust_root} \
@@ -193,8 +225,10 @@ find %{buildroot}/%{_libdir}/rustlib/ -type f -name '*.so' -exec rm -v '{}' '+'
 find %{buildroot}/%{_libdir}/ -type f -name '*.so' -exec chmod -v +x '{}' '+'
 
 # They also don't need the .rustc metadata anymore, so they won't support linking.
-# (but direct section removal breaks dynamic symbols -- leave it for now...)
-#find %{buildroot}/%{_libdir}/ -type f -name '*.so' -exec objcopy -R .rustc '{}' ';'
+# (but this needs the rhbz1380961 fix, or else eu-strip will clobber .dynsym)
+%if 0%{?fedora} >= 25
+find %{buildroot}/%{_libdir}/ -type f -name '*.so' -exec objcopy -R .rustc '{}' ';'
+%endif
 
 # FIXME: __os_install_post will strip the rlibs
 # -- should we find a way to preserve debuginfo?
@@ -218,7 +252,7 @@ mv -v %{buildroot}/%{_libdir}/rustlib/etc %{buildroot}/%{_datadir}/%{name}/
 # Note, many of the tests execute in parallel threads,
 # so it's better not to use a parallel make here.
 # The results are not stable on koji, so mask errors and just log it.
-make check-lite VERBOSE=1 -k || echo "make check-lite exited with code $?"
+make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %post -p /sbin/ldconfig
@@ -256,6 +290,10 @@ make check-lite VERBOSE=1 -k || echo "make check-lite exited with code $?"
 
 
 %changelog
+* Thu Oct 20 2016 Josh Stone <jistone@redhat.com> - 1.12.1-1
+- Update to 1.12.1.
+- Merge package changes from rawhide.
+
 * Sat Oct 01 2016 Josh Stone <jistone@redhat.com> - 1.12.0-2
 - Protect .rustc from rpm stripping.
 

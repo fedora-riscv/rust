@@ -4,7 +4,7 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%bcond_with bootstrap
+%bcond_without bootstrap
 %global bootstrap_channel 1.11.0
 %global bootstrap_date 2016-08-16
 
@@ -311,9 +311,10 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %changelog
-* Thu Oct 20 2016 Josh Stone <jistone@redhat.com> - 1.12.1-1
+* Sat Oct 22 2016 Josh Stone <jistone@redhat.com> - 1.12.1-1
 - Update to 1.12.1.
 - Merge package changes from rawhide.
+- Bootstrap aarch64.
 
 * Tue Sep 20 2016 Josh Stone <jistone@redhat.com> - 1.11.0-3.2
 - Rebuild without bootstrap binaries.

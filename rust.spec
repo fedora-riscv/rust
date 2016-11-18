@@ -63,9 +63,8 @@ end}
   for arch in string.gmatch(rpm.expand("%{bootstrap_arches}"), "%S+") do
     table.insert(bootstrap_arches, arch)
   end
-  local base = string.format("https://static.rust-lang.org/dist/%s/rustc-%s",
-                             rpm.expand("%{bootstrap_date}"),
-                             rpm.expand("%{bootstrap_channel}"))
+  local base = rpm.expand("https://static.rust-lang.org/dist/%{bootstrap_date}"
+                          .."/rustc-%{bootstrap_channel}")
   local target_arch = rpm.expand("%{_target_cpu}")
   for i, arch in ipairs(bootstrap_arches) do
     print(string.format("Source%d: %s-%s.tar.gz\n",

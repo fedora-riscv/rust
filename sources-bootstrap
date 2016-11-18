@@ -1,0 +1,8 @@
+41a8ea5a71155ac0cadc60b23ebd65b0  rustc-beta-src.tar.gz
+450896dd2f830209a9d713cc315a3f7a  rustc-1.13.0-aarch64-unknown-linux-gnu.tar.gz
+8aac8fdae529ac6cb59ca1aa9bdaba18  rustc-1.13.0-armv7-unknown-linux-gnueabihf.tar.gz
+86bde292c0e579c145ce8d197997af43  rustc-1.13.0-i686-unknown-linux-gnu.tar.gz
+66d82b3e76e73622abae8330d330aa17  rustc-1.13.0-powerpc64le-unknown-linux-gnu.tar.gz
+8af97776d60efc4d88f959d010d45c3d  rustc-1.13.0-powerpc64-unknown-linux-gnu.tar.gz
+4a9b1c356d6d3a3d41c5dea42692c0f8  rustc-1.13.0-s390x-unknown-linux-gnu.tar.gz
+1400262e1529f94a12d2f5c77cc67782  rustc-1.13.0-x86_64-unknown-linux-gnu.tar.gz

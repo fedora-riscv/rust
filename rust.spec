@@ -25,7 +25,7 @@
 
 Name:           rust
 Version:        1.14.0
-Release:        0.1.beta.2%{?dist}
+Release:        0.1.beta.3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -331,6 +331,9 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %changelog
+* Tue Dec 13 2016 Josh Stone <jistone@redhat.com> - 1.14.0-0.1.beta.3
+- Test 1.14.0-beta.3
+
 * Thu Nov 17 2016 Josh Stone <jistone@redhat.com> - 1.14.0-0.1.beta.2
 - Test 1.14.0-beta.2
 - Rewrite bootstrap logic to target specific arches.

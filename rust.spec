@@ -13,7 +13,6 @@
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
-%global bootstrap_arches ppc64 ppc64le
 
 # We generally don't want llvm-static present at all, since llvm-config will
 # make us link statically.  But we can opt in, e.g. to aid LLVM rebases.
@@ -355,7 +354,6 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 * Tue Jan 03 2017 Josh Stone <jistone@redhat.com> - 1.14.0-1
 - Update to 1.14.0.
 - Rewrite bootstrap logic to target specific arches.
-- Bootstrap ppc64, ppc64le.
 
 * Thu Nov 10 2016 Josh Stone <jistone@redhat.com> - 1.13.0-1
 - Update to 1.13.0.

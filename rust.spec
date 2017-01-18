@@ -3,13 +3,13 @@
 %global rust_arches x86_64 i686 armv7hl aarch64 ppc64 ppc64le s390x
 
 # The channel can be stable, beta, or nightly
-%{!?channel: %global channel stable}
+%{!?channel: %global channel beta}
 
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_channel 1.13.0
-%global bootstrap_date 2016-11-08
+%global bootstrap_channel 1.14.0
+%global bootstrap_date 2016-12-18
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -23,8 +23,8 @@
 
 
 Name:           rust
-Version:        1.14.0
-Release:        2%{?dist}
+Version:        1.15.0
+Release:        0.1.beta.3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -32,11 +32,11 @@ URL:            https://www.rust-lang.org
 ExclusiveArch:  %{rust_arches}
 
 %if "%{channel}" == "stable"
-%global rustc_package rustc-%{version}
+%global rustc_package rustc-%{version}-src
 %else
-%global rustc_package rustc-%{channel}
+%global rustc_package rustc-%{channel}-src
 %endif
-Source0:        https://static.rust-lang.org/dist/%{rustc_package}-src.tar.gz
+Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.gz
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -237,6 +237,7 @@ export RUSTFLAGS="-Clink-arg=-Wl,-z,relro,-z,now"
   --disable-jemalloc \
   --disable-rpath \
   --enable-debuginfo \
+  --disable-rustbuild \
   --release-channel=%{channel}
 
 %make_build VERBOSE=1
@@ -330,6 +331,9 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %changelog
+* Wed Jan 18 2017 Josh Stone <jistone@redhat.com> - 1.15.0-0.1.beta.3
+- Beta test
+
 * Fri Dec 23 2016 Josh Stone <jistone@redhat.com> - 1.14.0-2
 - Rebuild without bootstrap binaries.
 

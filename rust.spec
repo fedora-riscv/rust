@@ -1,7 +1,6 @@
 # Only x86_64 and i686 are Tier 1 platforms at this time.
 # https://forge.rust-lang.org/platform-support.html
-#global rust_arches x86_64 i686 armv7hl aarch64 ppc64 ppc64le s390x
-%global rust_arches x86_64 i686 armv7hl aarch64
+%global rust_arches x86_64 i686 armv7hl aarch64 ppc64 ppc64le s390x
 
 # The channel can be stable, beta, or nightly
 %{!?channel: %global channel stable}
@@ -14,6 +13,14 @@
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
+%global bootstrap_arches ppc64 ppc64le
+
+# Temporarily override the bootstrap channel for powerpc.  The binaries used
+# here are also *not* the upstream ones, but rather custom cross-compliations
+# by jistone using the newer docker images with ABI changes found here:
+# https://github.com/rust-lang/rust/pull/39382
+%global orig_bootstrap_channel %{bootstrap_channel}
+%global bootstrap_channel 1.15.0
 
 # We generally don't want llvm-static present at all, since llvm-config will
 # make us link statically.  But we can opt in, e.g. to aid LLVM rebases.
@@ -90,7 +97,7 @@ end}
 %global local_rust_root %{_builddir}/%{bootstrap_root}/rustc
 Provides:       bundled(%{name}-bootstrap) = %{bootstrap_channel}
 %else
-BuildRequires:  %{name} >= %{bootstrap_channel}
+BuildRequires:  %{name} >= %{orig_bootstrap_channel}
 BuildConflicts: %{name} > %{version}
 %global local_rust_root %{_prefix}
 %endif
@@ -353,6 +360,7 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 - Require rust-rpm-macros for new crate packaging.
 - Keep shared libraries under rustlib/, only debug-stripped.
 - Merge and clean up conditionals for epel7.
+- Bootstrap ppc64 and ppc64le.
 
 * Tue Jan 03 2017 Josh Stone <jistone@redhat.com> - 1.14.0-1
 - Update to 1.14.0.

@@ -13,14 +13,6 @@
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
-%global bootstrap_arches ppc64 ppc64le
-
-# Temporarily override the bootstrap channel for powerpc.  The binaries used
-# here are also *not* the upstream ones, but rather custom cross-compliations
-# by jistone using the newer docker images with ABI changes found here:
-# https://github.com/rust-lang/rust/pull/39382
-%global orig_bootstrap_channel %{bootstrap_channel}
-%global bootstrap_channel 1.15.0
 
 # We generally don't want llvm-static present at all, since llvm-config will
 # make us link statically.  But we can opt in, e.g. to aid LLVM rebases.
@@ -41,7 +33,7 @@
 
 Name:           rust
 Version:        1.15.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -97,7 +89,7 @@ end}
 %global local_rust_root %{_builddir}/%{bootstrap_root}/rustc
 Provides:       bundled(%{name}-bootstrap) = %{bootstrap_channel}
 %else
-BuildRequires:  %{name} >= %{orig_bootstrap_channel}
+BuildRequires:  %{name} >= %{bootstrap_channel}
 BuildConflicts: %{name} > %{version}
 %global local_rust_root %{_prefix}
 %endif
@@ -355,6 +347,9 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %changelog
+* Fri Feb 10 2017 Josh Stone <jistone@redhat.com> - 1.15.1-2
+- Rebuild without bootstrap binaries.
+
 * Fri Feb 10 2017 Josh Stone <jistone@redhat.com> - 1.15.1-1
 - Update to 1.15.1.
 - Require rust-rpm-macros for new crate packaging.

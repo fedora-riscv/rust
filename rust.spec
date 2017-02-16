@@ -33,7 +33,7 @@
 
 Name:           rust
 Version:        1.15.1
-Release:        1%{?dist}
+Release:        1%{?dist}.1
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -149,6 +149,10 @@ Requires:       gcc
 Requires:       rust-rpm-macros
 %endif
 %endif
+
+# An LLVM update added the Mips target, which rustc happily uses...
+# https://bugzilla.redhat.com/show_bug.cgi?id=1422930
+Requires:       llvm-libs%{?_isa} >= 3.8.1-2
 
 # ALL Rust libraries are private, because they don't keep an ABI.
 %global _privatelibs lib.*-[[:xdigit:]]{8}[.]so.*
@@ -347,6 +351,9 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %changelog
+* Thu Feb 16 2017 Josh Stone <jistone@redhat.com> - 1.15.1-1.1
+- Require newer LLVM to get Mips symbols (#1422930)
+
 * Fri Feb 10 2017 Josh Stone <jistone@redhat.com> - 1.15.1-1
 - Update to 1.15.1.
 - Require rust-rpm-macros for new crate packaging.

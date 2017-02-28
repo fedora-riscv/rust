@@ -20,7 +20,7 @@
 # *want* static we'll have to force it with "llvm-config --link-static".
 # See also https://github.com/rust-lang/rust/issues/36854
 # The new rustbuild accepts `--enable-llvm-link-shared`, else links static.
-%bcond_with llvm_static
+%bcond_without llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
 # is insufficient.  Rust currently requires LLVM 3.7+.
@@ -33,7 +33,7 @@
 
 Name:           rust
 Version:        1.15.1
-Release:        1%{?dist}.1
+Release:        1%{?dist}.2
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -351,6 +351,9 @@ make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %changelog
+* Tue Feb 28 2017 Josh Stone <jistone@redhat.com> - 1.15.1-1.2
+- Rebuild with llvm-static before llvm-3.9 rebase
+
 * Thu Feb 16 2017 Josh Stone <jistone@redhat.com> - 1.15.1-1.1
 - Require newer LLVM to get Mips symbols (#1422930)
 

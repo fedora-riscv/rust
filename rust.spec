@@ -3,16 +3,17 @@
 %global rust_arches x86_64 i686 armv7hl aarch64 ppc64 ppc64le s390x
 
 # The channel can be stable, beta, or nightly
-%{!?channel: %global channel stable}
+%{!?channel: %global channel beta}
 
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_channel 1.14.0
-%global bootstrap_date 2016-12-18
+%global bootstrap_channel 1.15.1
+%global bootstrap_date 2017-02-09
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
+%global bootstrap_arches x86_64
 
 # We generally don't want llvm-static present at all, since llvm-config will
 # make us link statically.  But we can opt in, e.g. to aid LLVM rebases.
@@ -32,8 +33,8 @@
 
 
 Name:           rust
-Version:        1.15.1
-Release:        1%{?dist}
+Version:        1.16.0
+Release:        0.1.beta.2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -72,7 +73,7 @@ end}
     table.insert(bootstrap_arches, arch)
   end
   local base = rpm.expand("https://static.rust-lang.org/dist/%{bootstrap_date}"
-                          .."/rustc-%{bootstrap_channel}")
+                          .."/rust-%{bootstrap_channel}")
   local target_arch = rpm.expand("%{_target_cpu}")
   for i, arch in ipairs(bootstrap_arches) do
     print(string.format("Source%d: %s-%s.tar.gz\n",
@@ -85,10 +86,11 @@ end}
 %endif
 
 %ifarch %{bootstrap_arches}
-%global bootstrap_root rustc-%{bootstrap_channel}-%{rust_triple}
-%global local_rust_root %{_builddir}/%{bootstrap_root}/rustc
+%global bootstrap_root rust-%{bootstrap_channel}-%{rust_triple}
+%global local_rust_root %{_builddir}/%{bootstrap_root}%{_prefix}
 Provides:       bundled(%{name}-bootstrap) = %{bootstrap_channel}
 %else
+BuildRequires:  cargo
 BuildRequires:  %{name} >= %{bootstrap_channel}
 BuildConflicts: %{name} > %{version}
 %global local_rust_root %{_prefix}
@@ -203,6 +205,9 @@ its standard library.
 
 %ifarch %{bootstrap_arches}
 %setup -q -n %{bootstrap_root} -T -b %{bootstrap_source}
+./install.sh --components=cargo,rustc,rust-std-%{rust_triple} \
+  --prefix=./%{_prefix} --disable-ldconfig
+test -f '%{local_rust_root}/bin/cargo'
 test -f '%{local_rust_root}/bin/rustc'
 %endif
 
@@ -241,7 +246,7 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 %build
 
 # Use hardening ldflags.
-export RUSTFLAGS="-Clink-arg=-Wl,-z,relro,-z,now"
+# FIXME export RUSTFLAGS="-Clink-arg=-Wl,-z,relro,-z,now"
 
 # We're going to override --libdir when configuring to get rustlib into a
 # common path, but we'll fix the shared libraries during install.
@@ -257,10 +262,10 @@ export RUSTFLAGS="-Clink-arg=-Wl,-z,relro,-z,now"
   --disable-jemalloc \
   --disable-rpath \
   --enable-debuginfo \
-  --disable-rustbuild \
+  --enable-vendor \
   --release-channel=%{channel}
 
-%make_build VERBOSE=1
+%make_build VERBOSE=1 %{!?rhel:-Onone}
 
 
 %install
@@ -298,7 +303,7 @@ find %{buildroot}%{_docdir}/%{name}/html -type f -exec chmod -x '{}' '+'
 # Note, many of the tests execute in parallel threads,
 # so it's better not to use a parallel make here.
 # The results are not stable on koji, so mask errors and just log it.
-make check-lite VERBOSE=1 -k || python2 src/etc/check-summary.py tmp/*.log || :
+make check VERBOSE=1 || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %post -p /sbin/ldconfig

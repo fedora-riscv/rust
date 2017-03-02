@@ -13,7 +13,6 @@
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
-%global bootstrap_arches x86_64
 
 # We generally don't want llvm-static present at all, since llvm-config will
 # make us link statically.  But we can opt in, e.g. to aid LLVM rebases.
@@ -31,6 +30,14 @@
 %bcond_with bundled_llvm
 %endif
 
+# LLDB isn't available everywhere...
+%if 0%{?rhel}
+%bcond_with lldb
+%else
+%bcond_without lldb
+%endif
+
+
 
 Name:           rust
 Version:        1.16.0
@@ -47,6 +54,8 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.gz
+
+Patch1:         rust-1.16.0-configure-no-override.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -189,6 +198,20 @@ This package includes the rust-gdb script, which allows easier debugging of Rust
 programs.
 
 
+%if %with lldb
+
+%package lldb
+Summary:        LLDB pretty printers for Rust
+BuildArch:      noarch
+Requires:       lldb
+
+%description lldb
+This package includes the rust-lldb script, which allows easier debugging of Rust
+programs.
+
+%endif
+
+
 %package doc
 Summary:        Documentation for Rust
 # NOT BuildArch:      noarch
@@ -242,11 +265,14 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
   src/librustc_llvm/lib.rs
 %endif
 
+%patch1 -p1 -b .no-override
+
 
 %build
 
 # Use hardening ldflags.
-# FIXME export RUSTFLAGS="-Clink-arg=-Wl,-z,relro,-z,now"
+%global rustflags -Clink-arg=-Wl,-z,relro,-z,now
+export RUSTFLAGS="%{rustflags}"
 
 # We're going to override --libdir when configuring to get rustlib into a
 # common path, but we'll fix the shared libraries during install.
@@ -265,11 +291,13 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
   --enable-vendor \
   --release-channel=%{channel}
 
-%make_build VERBOSE=1 %{!?rhel:-Onone}
+%make_build %{!?rhel:-Onone}
 
 
 %install
-%make_install VERBOSE=1
+export RUSTFLAGS="%{rustflags}"
+
+%make_install
 
 # The libdir libraries are identical to those under rustlib/, and we need
 # the latter in place to support dynamic linking for compiler plugins, so we'll
@@ -298,12 +326,19 @@ rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-MIT
 find %{buildroot}%{_docdir}/%{name}/html -empty -delete
 find %{buildroot}%{_docdir}/%{name}/html -type f -exec chmod -x '{}' '+'
 
+%if %without lldb
+rm -f %{buildroot}%{_bindir}/rust-lldb
+rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
+%endif
+
 
 %check
+export RUSTFLAGS="%{rustflags}"
+
 # Note, many of the tests execute in parallel threads,
 # so it's better not to use a parallel make here.
 # The results are not stable on koji, so mask errors and just log it.
-make check VERBOSE=1 || python2 src/etc/check-summary.py tmp/*.log || :
+make check || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %post -p /sbin/ldconfig
@@ -337,7 +372,18 @@ make check VERBOSE=1 || python2 src/etc/check-summary.py tmp/*.log || :
 %{_bindir}/rust-gdb
 %dir %{rustlibdir}
 %dir %{rustlibdir}/etc
-%{rustlibdir}/etc/*.py*
+%{rustlibdir}/etc/debugger_*.py*
+%{rustlibdir}/etc/gdb_*.py*
+
+
+%if %with lldb
+%files lldb
+%{_bindir}/rust-lldb
+%dir %{rustlibdir}
+%dir %{rustlibdir}/etc
+%{rustlibdir}/etc/debugger_*.py*
+%{rustlibdir}/etc/lldb_*.py*
+%endif
 
 
 %files doc
@@ -352,6 +398,9 @@ make check VERBOSE=1 || python2 src/etc/check-summary.py tmp/*.log || :
 
 
 %changelog
+* Wed Mar 01 2017 Josh Stone <jistone@redhat.com> - 1.16.0-0.1.beta.2
+- beta test
+
 * Thu Feb 09 2017 Josh Stone <jistone@redhat.com> - 1.15.1-1
 - Update to 1.15.1.
 - Require rust-rpm-macros for new crate packaging.

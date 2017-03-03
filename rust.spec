@@ -43,7 +43,7 @@
 
 Name:           rust
 Version:        1.16.0
-Release:        0.1.beta.2%{?dist}
+Release:        0.1.beta.3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -409,7 +409,7 @@ make check || :
 
 
 %changelog
-* Wed Mar 01 2017 Josh Stone <jistone@redhat.com> - 1.16.0-0.1.beta.2
+* Fri Mar 03 2017 Josh Stone <jistone@redhat.com> - 1.16.0-0.1.beta.3
 - beta test
 
 * Thu Feb 09 2017 Josh Stone <jistone@redhat.com> - 1.15.1-1

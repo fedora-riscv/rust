@@ -8,7 +8,9 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_channel 1.15.1
+%global bootstrap_rust 1.15.1
+%global bootstrap_cargo 0.16.0
+%global bootstrap_channel %{bootstrap_rust}
 %global bootstrap_date 2017-02-09
 
 # Only the specified arches will use bootstrap binaries.
@@ -97,10 +99,10 @@ end}
 %ifarch %{bootstrap_arches}
 %global bootstrap_root rust-%{bootstrap_channel}-%{rust_triple}
 %global local_rust_root %{_builddir}/%{bootstrap_root}%{_prefix}
-Provides:       bundled(%{name}-bootstrap) = %{bootstrap_channel}
+Provides:       bundled(%{name}-bootstrap) = %{bootstrap_rust}
 %else
-BuildRequires:  cargo
-BuildRequires:  %{name} >= %{bootstrap_channel}
+BuildRequires:  cargo >= %{bootstrap_cargo}
+BuildRequires:  %{name} >= %{bootstrap_rust}
 BuildConflicts: %{name} > %{version}
 %global local_rust_root %{_prefix}
 %endif
@@ -135,6 +137,9 @@ BuildConflicts: llvm-static
 # make check needs "ps" for src/test/run-pass/wait-forked-but-failed-child.rs
 BuildRequires:  procps-ng
 
+# debuginfo-gdb tests need gdb
+BuildRequires:  gdb
+
 # TODO: work on unbundling these!
 Provides:       bundled(hoedown) = 3.0.5
 Provides:       bundled(jquery) = 2.1.4
@@ -162,7 +167,7 @@ Requires:       rust-rpm-macros
 %endif
 
 # ALL Rust libraries are private, because they don't keep an ABI.
-%global _privatelibs lib.*-[[:xdigit:]]{8}[.]so.*
+%global _privatelibs lib.*-[[:xdigit:]]*[.]so.*
 %global __provides_exclude ^(%{_privatelibs})$
 %global __requires_exclude ^(%{_privatelibs})$
 
@@ -255,7 +260,9 @@ sed -i.jemalloc -e '1i // ignore-test jemalloc is disabled' \
   src/test/run-pass/allocator-default.rs
 
 %if 0%{?epel}
-sed -i.cmake -e 's/CFG_CMAKE cmake/&3/' configure
+mkdir -p cmake-bin
+ln -s /usr/bin/cmake3 cmake-bin/cmake
+%global cmake_path $PWD/cmake-bin
 %endif
 
 %if %{without bundled_llvm} && %{with llvm_static}
@@ -269,6 +276,8 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 
 
 %build
+
+%{?cmake_path:export PATH=%{cmake_path}:$PATH}
 
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
@@ -295,6 +304,7 @@ export RUSTFLAGS="%{rustflags}"
 
 
 %install
+%{?cmake_path:export PATH=%{cmake_path}:$PATH}
 export RUSTFLAGS="%{rustflags}"
 
 %make_install
@@ -333,12 +343,13 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %check
+%{?cmake_path:export PATH=%{cmake_path}:$PATH}
 export RUSTFLAGS="%{rustflags}"
 
 # Note, many of the tests execute in parallel threads,
 # so it's better not to use a parallel make here.
 # The results are not stable on koji, so mask errors and just log it.
-make check || python2 src/etc/check-summary.py tmp/*.log || :
+make check || :
 
 
 %post -p /sbin/ldconfig

@@ -58,6 +58,7 @@ ExclusiveArch:  %{rust_arches}
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.gz
 
 Patch1:         rust-1.16.0-configure-no-override.patch
+Patch2:         rust-gh40256.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -273,6 +274,7 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 %endif
 
 %patch1 -p1 -b .no-override
+%patch2 -p1
 
 
 %build

@@ -48,7 +48,7 @@
 
 Name:           rust
 Version:        1.16.0
-Release:        3%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -418,11 +418,8 @@ make check || :
 
 
 %changelog
-* Mon Mar 20 2017 Josh Stone <jistone@redhat.com> - 1.16.0-3
+* Mon Mar 20 2017 Josh Stone <jistone@redhat.com> - 1.16.0-2
 - Make rust-lldb arch-specific to deal with lldb deps
-
-* Fri Mar 17 2017 Josh Stone <jistone@redhat.com> - 1.16.0-2
-- Limit rust-lldb arches
 
 * Thu Mar 16 2017 Josh Stone <jistone@redhat.com> - 1.16.0-1
 - Update to 1.16.0.

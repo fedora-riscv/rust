@@ -32,18 +32,23 @@
 %bcond_with bundled_llvm
 %endif
 
+# LLDB only works on some architectures
+%ifarch %{arm} aarch64 %{ix86} x86_64
 # LLDB isn't available everywhere...
-%if 0%{?rhel}
-%bcond_with lldb
-%else
+%if !0%{?rhel}
 %bcond_without lldb
+%else
+%bcond_with lldb
+%endif
+%else
+%bcond_with lldb
 %endif
 
 
 
 Name:           rust
 Version:        1.16.0
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -211,8 +216,12 @@ programs.
 
 %package lldb
 Summary:        LLDB pretty printers for Rust
-BuildArch:      noarch
+
+# It could be noarch, but lldb has limited availability
+#BuildArch:      noarch
+
 Requires:       lldb
+Requires:       python-lldb
 
 %description lldb
 This package includes the rust-lldb script, which allows easier debugging of Rust
@@ -413,6 +422,12 @@ make check || :
 
 
 %changelog
+* Mon Mar 20 2017 Josh Stone <jistone@redhat.com> - 1.16.0-3
+- Make rust-lldb arch-specific to deal with lldb deps
+
+* Fri Mar 17 2017 Josh Stone <jistone@redhat.com> - 1.16.0-2
+- Limit rust-lldb arches
+
 * Thu Mar 16 2017 Josh Stone <jistone@redhat.com> - 1.16.0-1
 - Update to 1.16.0.
 - Use rustbuild instead of the old makefiles.

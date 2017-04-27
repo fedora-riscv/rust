@@ -8,10 +8,10 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.15.1
-%global bootstrap_cargo 0.16.0
+%global bootstrap_rust 1.16.0
+%global bootstrap_cargo 0.17.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2017-02-09
+%global bootstrap_date 2017-03-11
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -26,23 +26,28 @@
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
 # is insufficient.  Rust currently requires LLVM 3.7+.
-%if 0%{?rhel}
+%if 0%{?rhel} && !0%{?epel}
 %bcond_without bundled_llvm
 %else
 %bcond_with bundled_llvm
 %endif
 
+# LLDB only works on some architectures
+%ifarch %{arm} aarch64 %{ix86} x86_64
 # LLDB isn't available everywhere...
-%if 0%{?rhel}
-%bcond_with lldb
-%else
+%if !0%{?rhel}
 %bcond_without lldb
+%else
+%bcond_with lldb
+%endif
+%else
+%bcond_with lldb
 %endif
 
 
 
 Name:           rust
-Version:        1.16.0
+Version:        1.17.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
@@ -115,22 +120,28 @@ BuildRequires:  zlib-devel
 BuildRequires:  python2
 BuildRequires:  curl
 
+%if %with bundled_llvm
 %if 0%{?epel}
 BuildRequires:  cmake3
 %else
 BuildRequires:  cmake
 %endif
-
-%if %with bundled_llvm
 Provides:       bundled(llvm) = 3.9
 %else
-BuildRequires:  llvm-devel >= 3.7
+%if 0%{?fedora} >= 26 || 0%{?epel}
+%global llvm llvm3.9
+%global llvm_root %{_libdir}/%{llvm}
+%else
+%global llvm llvm
+%global llvm_root %{_prefix}
+%endif
+BuildRequires:  %{llvm}-devel >= 3.7
 %if %with llvm_static
-BuildRequires:  llvm-static
+BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
 %else
 # Make sure llvm-config doesn't see it.
-BuildConflicts: llvm-static
+BuildConflicts: %{llvm}-static
 %endif
 %endif
 
@@ -178,6 +189,14 @@ Requires:       rust-rpm-macros
 %global _find_debuginfo_opts -g
 %undefine _include_minidebuginfo
 
+# Use hardening ldflags.
+%global rustflags -Clink-arg=-Wl,-z,relro,-z,now
+
+%if %{without bundled_llvm} && "%{llvm_root}" != "%{_prefix}"
+# https://github.com/rust-lang/rust/issues/40717
+%global rustflags %{rustflags} -Clink-arg=-L%{llvm_root}/lib
+%endif
+
 %description
 Rust is a systems programming language that runs blazingly fast, prevents
 segfaults, and guarantees thread safety.
@@ -193,10 +212,19 @@ This package includes the standard libraries for building applications
 written in Rust.
 
 
+%package debugger-common
+Summary:        Common debugger pretty printers for Rust
+BuildArch:      noarch
+
+%description debugger-common
+This package includes the common functionality for %{name}-gdb and %{name}-lldb.
+
+
 %package gdb
 Summary:        GDB pretty printers for Rust
 BuildArch:      noarch
 Requires:       gdb
+Requires:       %{name}-debugger-common = %{version}-%{release}
 
 %description gdb
 This package includes the rust-gdb script, which allows easier debugging of Rust
@@ -207,8 +235,13 @@ programs.
 
 %package lldb
 Summary:        LLDB pretty printers for Rust
-BuildArch:      noarch
+
+# It could be noarch, but lldb has limited availability
+#BuildArch:      noarch
+
 Requires:       lldb
+Requires:       python-lldb
+Requires:       %{name}-debugger-common = %{version}-%{release}
 
 %description lldb
 This package includes the rust-lldb script, which allows easier debugging of Rust
@@ -259,7 +292,7 @@ sed -i.jemalloc -e '1i // ignore-test jemalloc is disabled' \
   src/test/compile-fail/allocator-rust-dylib-is-jemalloc.rs \
   src/test/run-pass/allocator-default.rs
 
-%if 0%{?epel}
+%if %{with bundled_llvm} && 0%{?epel}
 mkdir -p cmake-bin
 ln -s /usr/bin/cmake3 cmake-bin/cmake
 %global cmake_path $PWD/cmake-bin
@@ -278,9 +311,6 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 %build
 
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-
-# Use hardening ldflags.
-%global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 export RUSTFLAGS="%{rustflags}"
 
 # We're going to override --libdir when configuring to get rustlib into a
@@ -292,7 +322,7 @@ export RUSTFLAGS="%{rustflags}"
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
   --enable-local-rust --local-rust-root=%{local_rust_root} \
-  %{!?with_bundled_llvm: --llvm-root=%{_prefix} --disable-codegen-tests \
+  %{!?with_bundled_llvm: --llvm-root=%{llvm_root} --disable-codegen-tests \
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
   --disable-jemalloc \
   --disable-rpath \
@@ -300,14 +330,14 @@ export RUSTFLAGS="%{rustflags}"
   --enable-vendor \
   --release-channel=%{channel}
 
-%make_build %{!?rhel:-Onone}
+./x.py dist
 
 
 %install
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
 export RUSTFLAGS="%{rustflags}"
 
-%make_install
+DESTDIR=%{buildroot} ./x.py dist --install
 
 # The libdir libraries are identical to those under rustlib/, and we need
 # the latter in place to support dynamic linking for compiler plugins, so we'll
@@ -346,10 +376,8 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
 export RUSTFLAGS="%{rustflags}"
 
-# Note, many of the tests execute in parallel threads,
-# so it's better not to use a parallel make here.
 # The results are not stable on koji, so mask errors and just log it.
-make check || :
+./x.py test || :
 
 
 %post -p /sbin/ldconfig
@@ -379,36 +407,40 @@ make check || :
 %{rustlibdir}/%{rust_triple}/lib/*.rlib
 
 
-%files gdb
-%{_bindir}/rust-gdb
+%files debugger-common
 %dir %{rustlibdir}
 %dir %{rustlibdir}/etc
 %{rustlibdir}/etc/debugger_*.py*
+
+
+%files gdb
+%{_bindir}/rust-gdb
 %{rustlibdir}/etc/gdb_*.py*
 
 
 %if %with lldb
 %files lldb
 %{_bindir}/rust-lldb
-%dir %{rustlibdir}
-%dir %{rustlibdir}/etc
-%{rustlibdir}/etc/debugger_*.py*
 %{rustlibdir}/etc/lldb_*.py*
 %endif
 
 
 %files doc
+%docdir %{_docdir}/%{name}
 %dir %{_docdir}/%{name}
-%license %{_docdir}/%{name}/html/FiraSans-LICENSE.txt
-%license %{_docdir}/%{name}/html/Heuristica-LICENSE.txt
-%license %{_docdir}/%{name}/html/LICENSE-APACHE.txt
-%license %{_docdir}/%{name}/html/LICENSE-MIT.txt
-%license %{_docdir}/%{name}/html/SourceCodePro-LICENSE.txt
-%license %{_docdir}/%{name}/html/SourceSerifPro-LICENSE.txt
-%doc %{_docdir}/%{name}/html/
+%dir %{_docdir}/%{name}/html
+%{_docdir}/%{name}/html/*/
+%{_docdir}/%{name}/html/*.html
+%{_docdir}/%{name}/html/*.css
+%{_docdir}/%{name}/html/*.js
+%{_docdir}/%{name}/html/*.woff
+%license %{_docdir}/%{name}/html/*.txt
 
 
 %changelog
+* Thu Apr 27 2017 Josh Stone <jistone@redhat.com> - 1.17.0-1
+- Update to 1.17.0.
+
 * Thu Mar 16 2017 Josh Stone <jistone@redhat.com> - 1.16.0-1
 - Update to 1.16.0.
 - Use rustbuild instead of the old makefiles.

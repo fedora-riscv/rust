@@ -8,8 +8,8 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.16.0
-%global bootstrap_cargo 0.17.0
+%global bootstrap_rust 1.17.0
+%global bootstrap_cargo 0.18.0
 %global bootstrap_channel %{bootstrap_rust}
 %global bootstrap_date 2017-03-11
 
@@ -47,7 +47,7 @@
 
 
 Name:           rust
-Version:        1.17.0
+Version:        1.18.0
 Release:        0.1.beta.3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
@@ -339,19 +339,27 @@ export RUSTFLAGS="%{rustflags}"
 
 DESTDIR=%{buildroot} ./x.py dist --install
 
-# The libdir libraries are identical to those under rustlib/, and we need
-# the latter in place to support dynamic linking for compiler plugins, so we'll
-# point ldconfig to rustlib/ and remove the former.
-%global rust_ldconfig %{_sysconfdir}/ld.so.conf.d/%{name}-%{_arch}.conf
-mkdir -p %{buildroot}$(dirname %{rust_ldconfig})
-echo "%{rustlibdir}/%{rust_triple}/lib" > %{buildroot}%{rust_ldconfig}
-rm -v %{buildroot}%{common_libdir}/*.so
+
+# Make sure the shared libraries are in the proper libdir
+%if "%{_libdir}" != "%{common_libdir}"
+mkdir -p %{buildroot}%{_libdir}
+find %{buildroot}%{common_libdir} -maxdepth 1 -type f -name '*.so' \
+  -exec mv -v -t %{buildroot}%{_libdir} '{}' '+'
+%endif
+
+# The shared libraries should be executable for debuginfo extraction.
+find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' \
+  -exec chmod -v +x '{}' '+'
+
+# The libdir libraries are identical to those under rustlib/.  It's easier on
+# library loading if we keep them in libdir, but we do need them in rustlib/
+# to support dynamic linking for compiler plugins, so we'll symlink.
+(cd "%{buildroot}%{rustlibdir}/%{rust_triple}/lib" &&
+ find ../../../../%{_lib} -maxdepth 1 -name '*.so' \
+   -exec ln -v -f -s -t . '{}' '+')
 
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
 find %{buildroot}%{rustlibdir} -maxdepth 1 -type f -exec rm -v '{}' '+'
-
-# The shared libraries should be executable for debuginfo extraction.
-find %{buildroot}%{rustlibdir}/ -type f -name '*.so' -exec chmod -v +x '{}' '+'
 
 # FIXME: __os_install_post will strip the rlibs
 # -- should we find a way to preserve debuginfo?
@@ -391,13 +399,13 @@ export RUSTFLAGS="%{rustflags}"
 %doc README.md
 %{_bindir}/rustc
 %{_bindir}/rustdoc
+%{_libdir}/*.so
 %{_mandir}/man1/rustc.1*
 %{_mandir}/man1/rustdoc.1*
 %dir %{rustlibdir}
 %dir %{rustlibdir}/%{rust_triple}
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
-%{rust_ldconfig}
 
 
 %files std-static
@@ -438,8 +446,14 @@ export RUSTFLAGS="%{rustflags}"
 
 
 %changelog
-* Wed Apr 05 2017 Josh Stone <jistone@redhat.com> - 1.17.0-0.1.beta.3
+* Fri May 26 2017 Josh Stone <jistone@redhat.com> - 1.18.0-0.1.beta.3
 - beta test
+
+* Mon May 08 2017 Josh Stone <jistone@redhat.com> - 1.17.0-2
+- Move shared libraries back to libdir and symlink in rustlib
+
+* Thu Apr 27 2017 Josh Stone <jistone@redhat.com> - 1.17.0-1
+- Update to 1.17.0.
 
 * Mon Mar 20 2017 Josh Stone <jistone@redhat.com> - 1.16.0-3
 - Make rust-lldb arch-specific to deal with lldb deps

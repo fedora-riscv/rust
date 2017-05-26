@@ -103,7 +103,7 @@ end}
 
 %ifarch %{bootstrap_arches}
 %global bootstrap_root rust-%{bootstrap_channel}-%{rust_triple}
-%global local_rust_root %{_builddir}/%{bootstrap_root}%{_prefix}
+%global local_rust_root %{_builddir}/%{bootstrap_root}/usr
 Provides:       bundled(%{name}-bootstrap) = %{bootstrap_rust}
 %else
 BuildRequires:  cargo >= %{bootstrap_cargo}
@@ -121,11 +121,7 @@ BuildRequires:  python2
 BuildRequires:  curl
 
 %if %with bundled_llvm
-%if 0%{?epel}
 BuildRequires:  cmake3
-%else
-BuildRequires:  cmake
-%endif
 Provides:       bundled(llvm) = 3.9
 %else
 %if 0%{?fedora} >= 26 || 0%{?epel}
@@ -194,7 +190,7 @@ Requires:       rust-rpm-macros
 
 %if %{without bundled_llvm} && "%{llvm_root}" != "%{_prefix}"
 # https://github.com/rust-lang/rust/issues/40717
-%global rustflags %{rustflags} -Clink-arg=-L%{llvm_root}/lib
+%global rustflags %{?rustflags} -Clink-arg=-L%{llvm_root}/lib
 %endif
 
 %description
@@ -267,7 +263,7 @@ its standard library.
 %ifarch %{bootstrap_arches}
 %setup -q -n %{bootstrap_root} -T -b %{bootstrap_source}
 ./install.sh --components=cargo,rustc,rust-std-%{rust_triple} \
-  --prefix=./%{_prefix} --disable-ldconfig
+  --prefix=%{local_rust_root} --disable-ldconfig
 test -f '%{local_rust_root}/bin/cargo'
 test -f '%{local_rust_root}/bin/rustc'
 %endif
@@ -311,7 +307,7 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 %build
 
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-export RUSTFLAGS="%{rustflags}"
+%{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # We're going to override --libdir when configuring to get rustlib into a
 # common path, but we'll fix the shared libraries during install.
@@ -335,7 +331,7 @@ export RUSTFLAGS="%{rustflags}"
 
 %install
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-export RUSTFLAGS="%{rustflags}"
+%{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} ./x.py dist --install
 
@@ -382,7 +378,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %check
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-export RUSTFLAGS="%{rustflags}"
+%{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # The results are not stable on koji, so mask errors and just log it.
 ./x.py test || :

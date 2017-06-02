@@ -48,7 +48,7 @@
 
 Name:           rust
 Version:        1.18.0
-Release:        0.1.beta.3%{?dist}
+Release:        0.1.beta.4%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -442,7 +442,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Fri May 26 2017 Josh Stone <jistone@redhat.com> - 1.18.0-0.1.beta.3
+* Tue May 30 2017 Josh Stone <jistone@redhat.com> - 1.18.0-0.1.beta.4
 - beta test
 
 * Mon May 08 2017 Josh Stone <jistone@redhat.com> - 1.17.0-2

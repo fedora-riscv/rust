@@ -11,7 +11,7 @@
 %global bootstrap_rust 1.17.0
 %global bootstrap_cargo 0.18.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2017-03-11
+%global bootstrap_date 2017-04-27
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -48,7 +48,7 @@
 
 Name:           rust
 Version:        1.18.0
-Release:        0.1.beta.4%{?dist}
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -62,7 +62,11 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.gz
 
+# Don't let configure clobber our debuginfo choice for stable releases.
 Patch1:         rust-1.16.0-configure-no-override.patch
+
+# Backport rust#42363 to run all tests
+Patch2:         rust-1.18.0-no-fail-fast.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -165,18 +169,12 @@ Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
 # https://github.com/rust-lang/rust/issues/11937
 Requires:       gcc
 
-%if 0%{?fedora} >= 26
-# Only non-bootstrap builds should require rust-rpm-macros, because that
-# requires cargo, which might not exist yet.
-%ifnarch %{bootstrap_arches}
-Requires:       rust-rpm-macros
-%endif
-%endif
-
 # ALL Rust libraries are private, because they don't keep an ABI.
 %global _privatelibs lib.*-[[:xdigit:]]*[.]so.*
 %global __provides_exclude ^(%{_privatelibs})$
 %global __requires_exclude ^(%{_privatelibs})$
+%global __provides_exclude_from ^%{_docdir}/.*$
+%global __requires_exclude_from ^%{_docdir}/.*$
 
 # While we don't want to encourage dynamic linking to Rust shared libraries, as
 # there's no stable ABI, we still need the unallocated metadata (.rustc) to
@@ -190,7 +188,7 @@ Requires:       rust-rpm-macros
 
 %if %{without bundled_llvm} && "%{llvm_root}" != "%{_prefix}"
 # https://github.com/rust-lang/rust/issues/40717
-%global rustflags %{?rustflags} -Clink-arg=-L%{llvm_root}/lib
+%global library_path $(%{llvm_root}/bin/llvm-config --libdir)
 %endif
 
 %description
@@ -302,11 +300,13 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 %endif
 
 %patch1 -p1 -b .no-override
+%patch2 -p1 -b .no-fail-fast
 
 
 %build
 
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
+%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # We're going to override --libdir when configuring to get rustlib into a
@@ -331,6 +331,7 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 
 %install
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
+%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} ./x.py dist --install
@@ -378,10 +379,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %check
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
+%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # The results are not stable on koji, so mask errors and just log it.
-./x.py test || :
+./x.py test --no-fail-fast || :
 
 
 %post -p /sbin/ldconfig
@@ -442,8 +444,8 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Tue May 30 2017 Josh Stone <jistone@redhat.com> - 1.18.0-0.1.beta.4
-- beta test
+* Thu Jun 08 2017 Josh Stone <jistone@redhat.com> - 1.18.0-1
+- Update to 1.18.0.
 
 * Mon May 08 2017 Josh Stone <jistone@redhat.com> - 1.17.0-2
 - Move shared libraries back to libdir and symlink in rustlib

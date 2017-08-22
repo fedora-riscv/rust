@@ -62,8 +62,7 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-Patch1:         rust-1.19.0-43072-stack-guard.patch
-Patch2:         rust-1.19.0-43297-configure-debuginfo.patch
+Patch1:         rust-1.19.0-43297-configure-debuginfo.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -281,13 +280,6 @@ cp src/rt/hoedown/LICENSE src/rt/hoedown/LICENSE-hoedown
 sed -e '/*\//q' src/libbacktrace/backtrace.h \
   >src/libbacktrace/LICENSE-libbacktrace
 
-# These tests assume that alloc_jemalloc is present
-# https://github.com/rust-lang/rust/issues/35017
-sed -i.jemalloc -e '1i // ignore-test jemalloc is disabled' \
-  src/test/compile-fail/allocator-dylib-is-system.rs \
-  src/test/compile-fail/allocator-rust-dylib-is-jemalloc.rs \
-  src/test/run-pass/allocator-default.rs
-
 # This tests a problem of exponential growth, which seems to be less-reliably
 # fixed when running on older LLVM and/or some arches.  Just skip it for now.
 sed -i.ignore -e '1i // ignore-test may still be exponential...' \
@@ -306,8 +298,7 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
   src/librustc_llvm/lib.rs
 %endif
 
-%patch1 -p1 -b .stack-guard
-%patch2 -p1 -b .debuginfo
+%patch1 -p1 -b .debuginfo
 
 # The configure macro will modify some autoconf-related files, which upsets
 # cargo when it tries to verify checksums in those files.  If we just truncate

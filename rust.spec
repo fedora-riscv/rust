@@ -47,8 +47,8 @@
 
 
 Name:           rust
-Version:        1.19.0
-Release:        0.beta.4%{?dist}
+Version:        1.20.0
+Release:        0.beta.2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -60,10 +60,10 @@ ExclusiveArch:  %{rust_arches}
 %else
 %global rustc_package rustc-%{channel}-src
 %endif
-Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.gz
+Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# Don't let configure clobber our debuginfo choice for stable releases.
-Patch1:         rust-1.16.0-configure-no-override.patch
+Patch1:         rust-1.19.0-43072-stack-guard.patch
+Patch2:         rust-1.19.0-43297-configure-debuginfo.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -306,7 +306,8 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
   src/librustc_llvm/lib.rs
 %endif
 
-%patch1 -p1 -b .no-override
+%patch1 -p1 -b .stack-guard
+%patch2 -p1 -b .debuginfo
 
 # The configure macro will modify some autoconf-related files, which upsets
 # cargo when it tries to verify checksums in those files.  If we just truncate
@@ -334,6 +335,8 @@ find src/vendor -name .cargo-checksum.json \
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
   --disable-jemalloc \
   --disable-rpath \
+  --disable-debuginfo-lines \
+  --disable-debuginfo-only-std \
   --enable-debuginfo \
   --enable-vendor \
   --release-channel=%{channel}
@@ -457,8 +460,20 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Fri Jul 14 2017 Josh Stone <jistone@redhat.com> - 1.19.0-0.beta.4
-- beta test, now using llvm4
+* Tue Aug 22 2017 Josh Stone <jistone@redhat.com> - 1.20.0-0.beta.2
+- beta test
+
+* Thu Aug 03 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1.19.0-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_27_Binutils_Mass_Rebuild
+
+* Thu Jul 27 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1.19.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_27_Mass_Rebuild
+
+* Mon Jul 24 2017 Josh Stone <jistone@redhat.com> - 1.19.0-2
+- Use find-debuginfo.sh --keep-section .rustc
+
+* Thu Jul 20 2017 Josh Stone <jistone@redhat.com> - 1.19.0-1
+- Update to 1.19.0.
 
 * Thu Jun 08 2017 Josh Stone <jistone@redhat.com> - 1.18.0-1
 - Update to 1.18.0.

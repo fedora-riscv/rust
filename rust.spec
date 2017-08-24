@@ -8,10 +8,10 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.18.0
-%global bootstrap_cargo 0.19.0
+%global bootstrap_rust 1.19.0
+%global bootstrap_cargo 0.20.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2017-06-08
+%global bootstrap_date 2017-07-20
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -92,7 +92,7 @@ end}
                           .."/rust-%{bootstrap_channel}")
   local target_arch = rpm.expand("%{_target_cpu}")
   for i, arch in ipairs(bootstrap_arches) do
-    print(string.format("Source%d: %s-%s.tar.gz\n",
+    print(string.format("Source%d: %s-%s.tar.xz\n",
                         i, base, rust_triple(arch)))
     if arch == target_arch then
       rpm.define("bootstrap_source "..i)

@@ -48,7 +48,7 @@
 
 Name:           rust
 Version:        1.20.0
-Release:        0.beta.2%{?dist}
+Release:        0.beta.3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -451,7 +451,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Tue Aug 22 2017 Josh Stone <jistone@redhat.com> - 1.20.0-0.beta.2
+* Wed Aug 23 2017 Josh Stone <jistone@redhat.com> - 1.20.0-0.beta.3
 - beta test
 
 * Thu Aug 03 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1.19.0-4

@@ -163,7 +163,7 @@ Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
 # The C compiler is needed at runtime just for linking.  Someday rustc might
 # invoke the linker directly, and then we'll only need binutils.
 # https://github.com/rust-lang/rust/issues/11937
-Requires:       gcc
+Requires:       /usr/bin/cc
 
 # ALL Rust libraries are private, because they don't keep an ABI.
 %global _privatelibs lib.*-[[:xdigit:]]*[.]so.*

@@ -122,7 +122,7 @@ BuildRequires:  curl
 
 %if %with bundled_llvm
 BuildRequires:  cmake3
-Provides:       bundled(llvm) = 3.9
+Provides:       bundled(llvm) = 4.0
 %else
 %if 0%{?epel}
 %global llvm llvm3.9

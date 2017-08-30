@@ -257,6 +257,15 @@ This package includes HTML documentation for the Rust programming language and
 its standard library.
 
 
+%package src
+Summary:        Sources for the Rust standard library
+BuildArch:      noarch
+
+%description src
+This package includes source files for the Rust standard library.  It may be
+useful as a reference for code completion tools in various editors.
+
+
 %prep
 
 %ifarch %{bootstrap_arches}
@@ -269,8 +278,9 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-# unbundle
-rm -rf src/jemalloc/
+# We're disabling jemalloc, but rust-src still wants it.
+# rm -rf src/jemalloc/
+
 %if %without bundled_llvm
 rm -rf src/llvm/
 %endif
@@ -342,6 +352,7 @@ find src/vendor -name .cargo-checksum.json \
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} ./x.py install
+DESTDIR=%{buildroot} ./x.py install src
 
 
 # Make sure the shared libraries are in the proper libdir
@@ -448,6 +459,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %{_docdir}/%{name}/html/*.js
 %{_docdir}/%{name}/html/*.woff
 %license %{_docdir}/%{name}/html/*.txt
+
+
+%files src
+%dir %{rustlibdir}
+%{rustlibdir}/src
 
 
 %changelog

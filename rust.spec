@@ -48,7 +48,7 @@
 
 Name:           rust
 Version:        1.21.0
-Release:        0.beta.2%{?dist}
+Release:        0.beta.3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -63,9 +63,8 @@ ExclusiveArch:  %{rust_arches}
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
 Patch1:         rust-1.21.0-44203-exclude-compiler-rt-test.patch
-Patch2:         rust-1.21.0-44353-install-rustc.patch
-Patch3:         rust-1.21.0-44066-ppc64-struct-abi.patch
-Patch4:         rust-1.21.0-44440-s390x-global-align.patch
+Patch2:         rust-1.21.0-44066-ppc64-struct-abi.patch
+Patch3:         rust-1.21.0-44440-s390x-global-align.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -312,9 +311,8 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 %endif
 
 %patch1 -p1 -b .compiler-rt
-%patch2 -p1 -b .install-rustc
-%patch3 -p1 -b .ppc64-struct-abi
-%patch4 -p1 -b .s390x-global-align
+%patch2 -p1 -b .ppc64-struct-abi
+%patch3 -p1 -b .s390x-global-align
 
 # The configure macro will modify some autoconf-related files, which upsets
 # cargo when it tries to verify checksums in those files.  If we just truncate
@@ -473,7 +471,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Tue Sep 12 2017 Josh Stone <jistone@redhat.com> - 1.21.0-0.beta.2
+* Fri Sep 15 2017 Josh Stone <jistone@redhat.com> - 1.21.0-0.beta.3
 - beta test
 
 * Mon Sep 11 2017 Josh Stone <jistone@redhat.com> - 1.20.0-2

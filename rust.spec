@@ -48,7 +48,7 @@
 
 Name:           rust
 Version:        1.21.0
-Release:        0.beta.4%{?dist}
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -471,8 +471,8 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Mon Oct 09 2017 Josh Stone <jistone@redhat.com> - 1.21.0-0.beta.4
-- beta test
+* Thu Oct 12 2017 Josh Stone <jistone@redhat.com> - 1.21.0-1
+- Update to 1.21.0.
 
 * Mon Sep 11 2017 Josh Stone <jistone@redhat.com> - 1.20.0-2
 - ABI fixes for ppc64 and s390x.

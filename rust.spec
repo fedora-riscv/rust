@@ -337,7 +337,10 @@ find src/vendor -name .cargo-checksum.json \
 %ifarch %{arm}
 # full debuginfo is exhausting memory; just do libstd for now
 # https://github.com/rust-lang/rust/issues/45854
-%define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-lines
+#define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-lines
+# but f26 rpm doesn't like having some binaries with and without debuginfo, so disable it all :(
+%define enable_debuginfo --disable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-lines
+%global __debug_package %{nil}
 %else
 %define enable_debuginfo --enable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-lines
 %endif

@@ -62,6 +62,8 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
+Patch1:         binaryen-cmake-aarch64.patch
+
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
   local abi = "gnu"
@@ -281,6 +283,10 @@ test -f '%{local_rust_root}/bin/rustc'
 %endif
 
 %setup -q -n %{rustc_package}
+
+pushd src/binaryen
+%patch1 -p1 -b.aarch64
+popd
 
 # We're disabling jemalloc, but rust-src still wants it.
 # rm -rf src/jemalloc/

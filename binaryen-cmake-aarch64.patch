@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index fbd0bedb9109..e863ae9f2a05 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -122,6 +122,8 @@ ELSE()
+           set(TARGET_ARCH "x86-64")
+         elseif (${FILE_OUTPUT} MATCHES "Intel 80386")
+           set(TARGET_ARCH "i386")
++        elseif (${FILE_OUTPUT} MATCHES "aarch64")
++          set(TARGET_ARCH "ARM64")
+         elseif (${FILE_OUTPUT} MATCHES "ARM")
+           set(TARGET_ARCH "ARM")
+         else ()

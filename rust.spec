@@ -8,10 +8,10 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.21.0
-%global bootstrap_cargo 0.22.0
+%global bootstrap_rust 1.22.0
+%global bootstrap_cargo 0.23.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2017-10-12
+%global bootstrap_date 2017-11-22
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -47,7 +47,7 @@
 
 
 Name:           rust
-Version:        1.22.1
+Version:        1.23.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
@@ -61,8 +61,6 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
-
-Patch1:         rust-1.22.0-45566-option-checking.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -121,13 +119,14 @@ BuildRequires:  python2
 BuildRequires:  curl
 
 %if %with bundled_llvm
-BuildRequires:  cmake3
+BuildRequires:  cmake3 >= 3.4.3
 Provides:       bundled(llvm) = 4.0
 %else
+BuildRequires:  cmake >= 2.8.7
 %if 0%{?epel}
 %global llvm llvm3.9
 %endif
-%if 0%{?fedora} >= 28
+%if 0%{?fedora} >= 27
 %global llvm llvm4.0
 %endif
 %if %defined llvm
@@ -313,9 +312,6 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
   src/librustc_llvm/lib.rs
 %endif
 
-%global _default_patch_fuzz 1
-%patch1 -p1 -b .option-checking
-
 # The configure macro will modify some autoconf-related files, which upsets
 # cargo when it tries to verify checksums in those files.  If we just truncate
 # that file list, cargo won't have anything to complain about.
@@ -479,6 +475,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Mon Jan 08 2018 Josh Stone <jistone@redhat.com> - 1.23.0-1
+- Update to 1.23.0.
+
 * Thu Nov 23 2017 Josh Stone <jistone@redhat.com> - 1.22.1-1
 - Update to 1.22.1.
 

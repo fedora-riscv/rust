@@ -8,10 +8,10 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.22.0
-%global bootstrap_cargo 0.23.0
+%global bootstrap_rust 1.23.0
+%global bootstrap_cargo 0.24.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2017-11-22
+%global bootstrap_date 2018-01-04
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -47,8 +47,8 @@
 
 
 Name:           rust
-Version:        1.23.0
-Release:        1%{?dist}
+Version:        1.24.0
+Release:        0.beta.8%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -61,6 +61,8 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
+
+Patch1:         rust-1.24.0-beta-prerelease.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -282,6 +284,8 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
+%patch1 -p1 -b .beta-prerelease
+
 # We're disabling jemalloc, but rust-src still wants it.
 # rm -rf src/jemalloc/
 
@@ -475,6 +479,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Jan 25 2018 Josh Stone <jistone@redhat.com> - 1.24.0-0.beta.8
+- beta test
+
 * Mon Jan 08 2018 Josh Stone <jistone@redhat.com> - 1.23.0-1
 - Update to 1.23.0.
 

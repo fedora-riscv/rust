@@ -416,8 +416,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 ./x.py test --no-fail-fast || :
 
 
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
+%ldconfig_scriptlets
 
 
 %files
@@ -479,8 +478,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Thu Jan 25 2018 Josh Stone <jistone@redhat.com> - 1.24.0-0.beta.8
+* Fri Feb 02 2018 Josh Stone <jistone@redhat.com> - 1.24.0-0.beta.8
 - beta test
+
+* Thu Feb 01 2018 Igor Gnatenko <ignatenkobrain@fedoraproject.org> - 1.23.0-2
+- Switch to %%ldconfig_scriptlets
 
 * Mon Jan 08 2018 Josh Stone <jistone@redhat.com> - 1.23.0-1
 - Update to 1.23.0.

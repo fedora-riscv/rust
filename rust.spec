@@ -48,7 +48,7 @@
 
 Name:           rust
 Version:        1.24.0
-Release:        0.beta.8%{?dist}
+Release:        0.beta.11%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -62,17 +62,14 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-lang/rust/pull/47762
-Patch1:         rust-1.24.0-beta-prerelease.patch
-
 # https://github.com/rust-lang/rust/pull/47610
-Patch2:         0001-Update-DW_OP_plus-to-DW_OP_plus_uconst.patch
+Patch1:         0001-Update-DW_OP_plus-to-DW_OP_plus_uconst.patch
 
 # https://github.com/rust-lang/rust/pull/47688
-Patch3:         0001-Let-LLVM-5-add-DW_OP_deref-to-indirect-args-itself.patch
+Patch2:         0001-Let-LLVM-5-add-DW_OP_deref-to-indirect-args-itself.patch
 
 # https://github.com/WebAssembly/binaryen/pull/1400
-Patch4:         0001-Fix-Wcatch-value-from-GCC-8.patch
+Patch3:         0001-Fix-Wcatch-value-from-GCC-8.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -294,12 +291,11 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -b .beta-prerelease
-%patch2 -p1 -b .DW_OP_plus_uconst
-%patch3 -p1 -b .DW_OP_deref
+%patch1 -p1 -b .DW_OP_plus_uconst
+%patch2 -p1 -b .DW_OP_deref
 
 pushd src/binaryen
-%patch4 -p1 -b .catch-value
+%patch3 -p1 -b .catch-value
 popd
 
 # We're disabling jemalloc, but rust-src still wants it.
@@ -494,6 +490,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Mon Feb 05 2018 Josh Stone <jistone@redhat.com> - 1.24.0-0.beta.11
+- beta test
+
 * Fri Feb 02 2018 Josh Stone <jistone@redhat.com> - 1.24.0-0.beta.8
 - beta test, use LLVM 5 where available
 

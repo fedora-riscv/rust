@@ -132,10 +132,7 @@ BuildRequires:  cmake3 >= 3.4.3
 Provides:       bundled(llvm) = 4.0
 %else
 BuildRequires:  cmake >= 2.8.7
-%if 0%{?epel}
-%global llvm llvm3.9
-%endif
-%if 0%{?fedora} >= 28
+%if 0%{?epel} || 0%{?fedora} >= 28
 %global llvm llvm5.0
 %endif
 %if %defined llvm

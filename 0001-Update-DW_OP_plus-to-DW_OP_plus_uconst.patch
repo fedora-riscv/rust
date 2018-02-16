@@ -1,0 +1,67 @@
+From e2f6b280ea13e48bff86254549988e61eee37139 Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Fri, 19 Jan 2018 21:43:53 -0800
+Subject: [PATCH] Update DW_OP_plus to DW_OP_plus_uconst
+
+LLVM <= 4.0 used a non-standard interpretation of `DW_OP_plus`.  In the
+DWARF standard, this adds two items on the expressions stack.  LLVM's
+behavior was more like DWARF's `DW_OP_plus_uconst` -- adding a constant
+that follows the op.  The patch series starting with [D33892] switched
+to the standard DWARF interpretation, so we need to follow.
+
+[D33892]: https://reviews.llvm.org/D33892
+---
+ src/librustc_llvm/ffi.rs      | 2 +-
+ src/librustc_trans/mir/mod.rs | 2 +-
+ src/rustllvm/RustWrapper.cpp  | 9 ++++++++-
+ 3 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/src/librustc_llvm/ffi.rs b/src/librustc_llvm/ffi.rs
+index b97e37f4c8fb..f51e51a88b10 100644
+--- a/src/librustc_llvm/ffi.rs
++++ b/src/librustc_llvm/ffi.rs
+@@ -1546,7 +1546,7 @@ extern "C" {
+                                                 InlinedAt: MetadataRef)
+                                                 -> ValueRef;
+     pub fn LLVMRustDIBuilderCreateOpDeref() -> i64;
+-    pub fn LLVMRustDIBuilderCreateOpPlus() -> i64;
++    pub fn LLVMRustDIBuilderCreateOpPlusUconst() -> i64;
+ 
+     pub fn LLVMRustWriteTypeToString(Type: TypeRef, s: RustStringRef);
+     pub fn LLVMRustWriteValueToString(value_ref: ValueRef, s: RustStringRef);
+diff --git a/src/librustc_trans/mir/mod.rs b/src/librustc_trans/mir/mod.rs
+index 3064e2f7c7af..b367eb6548d0 100644
+--- a/src/librustc_trans/mir/mod.rs
++++ b/src/librustc_trans/mir/mod.rs
+@@ -547,7 +547,7 @@ fn arg_local_refs<'a, 'tcx>(bx: &Builder<'a, 'tcx>,
+ 
+                 let ops = unsafe {
+                     [llvm::LLVMRustDIBuilderCreateOpDeref(),
+-                     llvm::LLVMRustDIBuilderCreateOpPlus(),
++                     llvm::LLVMRustDIBuilderCreateOpPlusUconst(),
+                      byte_offset_of_var_in_env as i64,
+                      llvm::LLVMRustDIBuilderCreateOpDeref()]
+                 };
+diff --git a/src/rustllvm/RustWrapper.cpp b/src/rustllvm/RustWrapper.cpp
+index 95130d596e16..0fe533d447bc 100644
+--- a/src/rustllvm/RustWrapper.cpp
++++ b/src/rustllvm/RustWrapper.cpp
+@@ -866,7 +866,14 @@ extern "C" int64_t LLVMRustDIBuilderCreateOpDeref() {
+   return dwarf::DW_OP_deref;
+ }
+ 
+-extern "C" int64_t LLVMRustDIBuilderCreateOpPlus() { return dwarf::DW_OP_plus; }
++extern "C" int64_t LLVMRustDIBuilderCreateOpPlusUconst() {
++#if LLVM_VERSION_GE(5, 0)
++  return dwarf::DW_OP_plus_uconst;
++#else
++  // older LLVM used `plus` to behave like `plus_uconst`.
++  return dwarf::DW_OP_plus;
++#endif
++}
+ 
+ extern "C" void LLVMRustWriteTypeToString(LLVMTypeRef Ty, RustStringRef Str) {
+   RawRustStringOstream OS(Str);
+-- 
+2.14.3
+

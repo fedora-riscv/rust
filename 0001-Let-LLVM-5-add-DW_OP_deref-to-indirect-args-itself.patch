@@ -1,0 +1,53 @@
+From 7eb7d45c0b0a9dc0454c5f3a3c5e911c7900bbea Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Tue, 23 Jan 2018 13:53:01 -0800
+Subject: [PATCH] Let LLVM 5 add DW_OP_deref to indirect args itself
+
+We needed to manually added the `DW_OP_deref` ourselves in earlier LLVM,
+but starting with [D31439] in LLVM 5, it appears that LLVM will always
+handle this itself.  When we were still adding this manually, the
+resulting `.debug_loc` had too many derefs, and this failed test
+`debuginfo/by-value-self-argument-in-trait-impl.rs`.
+
+[D31439]: https://reviews.llvm.org/D31439
+
+Fixes #47611.
+cc @alexcrichton
+r? @michaelwoerister
+---
+ src/librustc_trans/mir/mod.rs | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/src/librustc_trans/mir/mod.rs b/src/librustc_trans/mir/mod.rs
+index b367eb6548d0..da01592d9118 100644
+--- a/src/librustc_trans/mir/mod.rs
++++ b/src/librustc_trans/mir/mod.rs
+@@ -487,16 +487,18 @@ fn arg_local_refs<'a, 'tcx>(bx: &Builder<'a, 'tcx>,
+                 // The Rust ABI passes indirect variables using a pointer and a manual copy, so we
+                 // need to insert a deref here, but the C ABI uses a pointer and a copy using the
+                 // byval attribute, for which LLVM does the deref itself, so we must not add it.
++                // Starting with D31439 in LLVM 5, it *always* does the deref itself.
+                 let mut variable_access = VariableAccess::DirectVariable {
+                     alloca: place.llval
+                 };
+-
+-                if let PassMode::Indirect(ref attrs) = arg.mode {
+-                    if !attrs.contains(ArgAttribute::ByVal) {
+-                        variable_access = VariableAccess::IndirectVariable {
+-                            alloca: place.llval,
+-                            address_operations: &deref_op,
+-                        };
++                if unsafe { llvm::LLVMRustVersionMajor() < 5 } {
++                    if let PassMode::Indirect(ref attrs) = arg.mode {
++                        if !attrs.contains(ArgAttribute::ByVal) {
++                            variable_access = VariableAccess::IndirectVariable {
++                                alloca: place.llval,
++                                address_operations: &deref_op,
++                            };
++                        }
+                     }
+                 }
+ 
+-- 
+2.14.3
+

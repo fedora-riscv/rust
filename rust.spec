@@ -258,7 +258,7 @@ Summary:        LLDB pretty printers for Rust
 #BuildArch:      noarch
 
 Requires:       lldb
-Requires:       python2-lldb
+Requires:       python-lldb
 Requires:       %{name}-debugger-common = %{version}-%{release}
 
 %description lldb

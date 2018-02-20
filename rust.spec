@@ -48,7 +48,7 @@
 
 Name:           rust
 Version:        1.24.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -77,6 +77,11 @@ Patch4:         0001-Ignore-run-pass-sse2-when-using-system-LLVM.patch
 # https://github.com/rust-lang/rust/pull/47912
 Patch5:         0001-Enable-stack-probe-tests-with-system-LLVM-5.0.patch
 Patch6:         0002-Use-a-range-to-identify-SIGSEGV-in-stack-guards.patch
+
+# fix for https://github.com/rust-lang/rust/issues/47469
+# via https://github.com/rust-lang/rust/pull/46592
+Patch7:         rust-pr46592-bootstrap-libdir.patch
+Patch8:         rust-pr48362-libdir-relative.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -310,6 +315,8 @@ popd
 %patch4 -p1 -b .sse2
 %patch5 -p1 -b .out-of-stack
 %patch6 -p1 -b .out-of-stack
+%patch7 -p1 -b .bootstrap-libdir
+%patch8 -p1 -b .bootstrap-libdir-relative
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -374,10 +381,6 @@ find src/vendor -name .cargo-checksum.json \
 %define enable_debuginfo --enable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-lines
 %endif
 
-# NB: full bootstrap is needed because of a bug in local_rebuild:
-# https://github.com/rust-lang/rust/issues/47469
-# (should be fixed in rust-1.25)
-
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
@@ -388,7 +391,6 @@ find src/vendor -name .cargo-checksum.json \
   --disable-rpath \
   %{enable_debuginfo} \
   --enable-vendor \
-  --enable-full-bootstrap \
   --release-channel=%{channel}
 
 %{python} ./x.py build
@@ -419,8 +421,12 @@ find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' \
 # library loading if we keep them in libdir, but we do need them in rustlib/
 # to support dynamic linking for compiler plugins, so we'll symlink.
 (cd "%{buildroot}%{rustlibdir}/%{rust_triple}/lib" &&
- find ../../../../%{_lib} -maxdepth 1 -name '*.so' \
-   -exec ln -v -f -s -t . '{}' '+')
+ find ../../../../%{_lib} -maxdepth 1 -name '*.so' |
+ while read lib; do
+   # make sure they're actually identical!
+   cmp "$lib" "${lib##*/}"
+   ln -v -f -s -t . "$lib"
+ done)
 
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
 find %{buildroot}%{rustlibdir} -maxdepth 1 -type f -exec rm -v '{}' '+'
@@ -515,6 +521,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Mon Feb 19 2018 Josh Stone <jistone@redhat.com> - 1.24.0-2
+- rhbz1546541: drop full-bootstrap; cmp libs before symlinking.
+- Backport pr46592 to fix local_rebuild bootstrapping.
+- Backport pr48362 to fix relative/absolute libdir.
+
 * Thu Feb 15 2018 Josh Stone <jistone@redhat.com> - 1.24.0-1
 - Update to 1.24.0.
 

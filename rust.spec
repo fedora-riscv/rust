@@ -47,8 +47,8 @@
 
 
 Name:           rust
-Version:        1.24.0
-Release:        2%{?dist}
+Version:        1.24.1
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -521,6 +521,12 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Mar 01 2018 Josh Stone <jistone@redhat.com> - 1.24.1-1
+- Update to 1.24.1.
+
+* Wed Feb 21 2018 Josh Stone <jistone@redhat.com> - 1.24.0-3
+- Backport a rebuild fix for rust#48308.
+
 * Mon Feb 19 2018 Josh Stone <jistone@redhat.com> - 1.24.0-2
 - rhbz1546541: drop full-bootstrap; cmp libs before symlinking.
 - Backport pr46592 to fix local_rebuild bootstrapping.

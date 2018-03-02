@@ -25,7 +25,7 @@
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 3.7+.
+# is insufficient.  Rust currently requires LLVM 3.9+.
 %if 0%{?rhel} && !0%{?epel}
 %bcond_without bundled_llvm
 %else
@@ -47,8 +47,8 @@
 
 
 Name:           rust
-Version:        1.24.0
-Release:        0.beta.11%{?dist}
+Version:        1.24.1
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -62,14 +62,26 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
+# https://github.com/WebAssembly/binaryen/pull/1400
+Patch1:         0001-Fix-Wcatch-value-from-GCC-8.patch
+
 # https://github.com/rust-lang/rust/pull/47610
-Patch1:         0001-Update-DW_OP_plus-to-DW_OP_plus_uconst.patch
+Patch2:         0001-Update-DW_OP_plus-to-DW_OP_plus_uconst.patch
 
 # https://github.com/rust-lang/rust/pull/47688
-Patch2:         0001-Let-LLVM-5-add-DW_OP_deref-to-indirect-args-itself.patch
+Patch3:         0001-Let-LLVM-5-add-DW_OP_deref-to-indirect-args-itself.patch
 
-# https://github.com/WebAssembly/binaryen/pull/1400
-Patch3:         0001-Fix-Wcatch-value-from-GCC-8.patch
+# https://github.com/rust-lang/rust/pull/47884
+Patch4:         0001-Ignore-run-pass-sse2-when-using-system-LLVM.patch
+
+# https://github.com/rust-lang/rust/pull/47912
+Patch5:         0001-Enable-stack-probe-tests-with-system-LLVM-5.0.patch
+Patch6:         0002-Use-a-range-to-identify-SIGSEGV-in-stack-guards.patch
+
+# fix for https://github.com/rust-lang/rust/issues/47469
+# via https://github.com/rust-lang/rust/pull/46592
+Patch7:         rust-pr46592-bootstrap-libdir.patch
+Patch8:         rust-pr48362-libdir-relative.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -124,8 +136,14 @@ BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  ncurses-devel
 BuildRequires:  zlib-devel
-BuildRequires:  python2
 BuildRequires:  curl
+
+%if 0%{?rhel} && 0%{?rhel} <= 7
+%global python python2
+%else
+%global python python3
+%endif
+BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
@@ -158,10 +176,10 @@ BuildRequires:  procps-ng
 BuildRequires:  gdb
 
 # TODO: work on unbundling these!
-Provides:       bundled(hoedown) = 3.0.5
+Provides:       bundled(hoedown) = 3.0.7
 Provides:       bundled(jquery) = 2.1.4
 Provides:       bundled(libbacktrace) = 6.1.0
-Provides:       bundled(miniz) = 1.14
+Provides:       bundled(miniz) = 1.16~beta+r1
 
 # Virtual provides for folks who attempt "dnf install rustc"
 Provides:       rustc = %{version}-%{release}
@@ -245,7 +263,7 @@ Summary:        LLDB pretty printers for Rust
 #BuildArch:      noarch
 
 Requires:       lldb
-Requires:       python-lldb
+Requires:       python2-lldb
 Requires:       %{name}-debugger-common = %{version}-%{release}
 
 %description lldb
@@ -288,12 +306,21 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -b .DW_OP_plus_uconst
-%patch2 -p1 -b .DW_OP_deref
-
 pushd src/binaryen
-%patch3 -p1 -b .catch-value
+%patch1 -p1 -b .catch-value
 popd
+
+%patch2 -p1 -b .DW_OP_plus_uconst
+%patch3 -p1 -b .DW_OP_deref
+%patch4 -p1 -b .sse2
+%patch5 -p1 -b .out-of-stack
+%patch6 -p1 -b .out-of-stack
+%patch7 -p1 -b .bootstrap-libdir
+%patch8 -p1 -b .bootstrap-libdir-relative
+
+%if "%{python}" == "python3"
+sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
+%endif
 
 # We're disabling jemalloc, but rust-src still wants it.
 # rm -rf src/jemalloc/
@@ -363,8 +390,8 @@ find src/vendor -name .cargo-checksum.json \
   --enable-vendor \
   --release-channel=%{channel}
 
-./x.py build
-./x.py doc
+%{python} ./x.py build
+%{python} ./x.py doc
 
 
 %install
@@ -372,8 +399,8 @@ find src/vendor -name .cargo-checksum.json \
 %{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
-DESTDIR=%{buildroot} ./x.py install
-DESTDIR=%{buildroot} ./x.py install src
+DESTDIR=%{buildroot} %{python} ./x.py install
+DESTDIR=%{buildroot} %{python} ./x.py install src
 
 
 # Make sure the shared libraries are in the proper libdir
@@ -391,8 +418,12 @@ find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' \
 # library loading if we keep them in libdir, but we do need them in rustlib/
 # to support dynamic linking for compiler plugins, so we'll symlink.
 (cd "%{buildroot}%{rustlibdir}/%{rust_triple}/lib" &&
- find ../../../../%{_lib} -maxdepth 1 -name '*.so' \
-   -exec ln -v -f -s -t . '{}' '+')
+ find ../../../../%{_lib} -maxdepth 1 -name '*.so' |
+ while read lib; do
+   # make sure they're actually identical!
+   cmp "$lib" "${lib##*/}"
+   ln -v -f -s -t . "$lib"
+ done)
 
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
 find %{buildroot}%{rustlibdir} -maxdepth 1 -type f -exec rm -v '{}' '+'
@@ -422,7 +453,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # The results are not stable on koji, so mask errors and just log it.
-./x.py test --no-fail-fast || :
+%{python} ./x.py test --no-fail-fast || :
 
 
 %ldconfig_scriptlets
@@ -487,11 +518,27 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Mon Feb 05 2018 Josh Stone <jistone@redhat.com> - 1.24.0-0.beta.11
-- beta test
+* Thu Mar 01 2018 Josh Stone <jistone@redhat.com> - 1.24.1-1
+- Update to 1.24.1.
 
-* Fri Feb 02 2018 Josh Stone <jistone@redhat.com> - 1.24.0-0.beta.8
-- beta test, use LLVM 5 where available
+* Wed Feb 21 2018 Josh Stone <jistone@redhat.com> - 1.24.0-3
+- Backport a rebuild fix for rust#48308.
+
+* Mon Feb 19 2018 Josh Stone <jistone@redhat.com> - 1.24.0-2
+- rhbz1546541: drop full-bootstrap; cmp libs before symlinking.
+- Backport pr46592 to fix local_rebuild bootstrapping.
+- Backport pr48362 to fix relative/absolute libdir.
+
+* Thu Feb 15 2018 Josh Stone <jistone@redhat.com> - 1.24.0-1
+- Update to 1.24.0.
+
+* Mon Feb 12 2018 Iryna Shcherbina <ishcherb@redhat.com> - 1.23.0-4
+- Update Python 2 dependency declarations to new packaging standards
+  (See https://fedoraproject.org/wiki/FinalizingFedoraSwitchtoPython3)
+
+* Tue Feb 06 2018 Josh Stone <jistone@redhat.com> - 1.23.0-3
+- Use full-bootstrap to work around a rebuild issue.
+- Patch binaryen for GCC 8
 
 * Thu Feb 01 2018 Igor Gnatenko <ignatenkobrain@fedoraproject.org> - 1.23.0-2
 - Switch to %%ldconfig_scriptlets

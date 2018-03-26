@@ -8,20 +8,15 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.23.0
-%global bootstrap_cargo 0.24.0
+%global bootstrap_rust 1.24.0
+%global bootstrap_cargo 0.25.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-01-04
+%global bootstrap_date 2018-02-15
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
 
-# We generally don't want llvm-static present at all, since llvm-config will
-# make us link statically.  But we can opt in, e.g. to aid LLVM rebases.
-# FIXME: LLVM 3.9 prefers shared linking now! Which is good, but next time we
-# *want* static we'll have to force it with "llvm-config --link-static".
-# See also https://github.com/rust-lang/rust/issues/36854
-# The new rustbuild accepts `--enable-llvm-link-shared`, else links static.
+# Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
@@ -47,8 +42,8 @@
 
 
 Name:           rust
-Version:        1.24.1
-Release:        1%{?dist}
+Version:        1.25.0
+Release:        0.1.beta.13%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -62,26 +57,8 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/WebAssembly/binaryen/pull/1400
-Patch1:         0001-Fix-Wcatch-value-from-GCC-8.patch
-
-# https://github.com/rust-lang/rust/pull/47610
-Patch2:         0001-Update-DW_OP_plus-to-DW_OP_plus_uconst.patch
-
-# https://github.com/rust-lang/rust/pull/47688
-Patch3:         0001-Let-LLVM-5-add-DW_OP_deref-to-indirect-args-itself.patch
-
-# https://github.com/rust-lang/rust/pull/47884
-Patch4:         0001-Ignore-run-pass-sse2-when-using-system-LLVM.patch
-
-# https://github.com/rust-lang/rust/pull/47912
-Patch5:         0001-Enable-stack-probe-tests-with-system-LLVM-5.0.patch
-Patch6:         0002-Use-a-range-to-identify-SIGSEGV-in-stack-guards.patch
-
-# fix for https://github.com/rust-lang/rust/issues/47469
-# via https://github.com/rust-lang/rust/pull/46592
-Patch7:         rust-pr46592-bootstrap-libdir.patch
-Patch8:         rust-pr48362-libdir-relative.patch
+# https://github.com/rust-lang/rust/pull/49290
+Patch1:         0001-Allow-installing-rustfmt-without-config.extended.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -126,8 +103,12 @@ end}
 Provides:       bundled(%{name}-bootstrap) = %{bootstrap_rust}
 %else
 BuildRequires:  cargo >= %{bootstrap_cargo}
+%if 0%{?fedora} >= 27
+BuildRequires:  (%{name} >= %{bootstrap_rust} with %{name} <= %{version})
+%else
 BuildRequires:  %{name} >= %{bootstrap_rust}
 BuildConflicts: %{name} > %{version}
+%endif
 %global local_rust_root %{_prefix}
 %endif
 
@@ -147,10 +128,10 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 4.0
+Provides:       bundled(llvm) = 6.0
 %else
 BuildRequires:  cmake >= 2.8.7
-%if 0%{?epel} || 0%{?fedora} >= 28
+%if 0%{?epel}
 %global llvm llvm5.0
 %endif
 %if %defined llvm
@@ -159,13 +140,10 @@ BuildRequires:  cmake >= 2.8.7
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 3.7
+BuildRequires:  %{llvm}-devel >= 3.9
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
-%else
-# Make sure llvm-config doesn't see it.
-BuildConflicts: %{llvm}-static
 %endif
 %endif
 
@@ -285,6 +263,20 @@ This package includes HTML documentation for the Rust programming language and
 its standard library.
 
 
+%package -n rustfmt-preview
+Summary:        Tool to find and fix Rust formatting issues
+Version:        0.3.8
+Requires:       cargo
+
+# Despite the lower version, our rustfmt-preview is newer than rustfmt-0.9.
+# It's expected to stay "preview" until it's released as 1.0.
+Obsoletes:      rustfmt <= 0.9.0
+Provides:       rustfmt = %{version}
+
+%description -n rustfmt-preview
+A tool for formatting Rust code according to style guidelines.
+
+
 %package src
 Summary:        Sources for the Rust standard library
 BuildArch:      noarch
@@ -306,17 +298,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-pushd src/binaryen
-%patch1 -p1 -b .catch-value
-popd
-
-%patch2 -p1 -b .DW_OP_plus_uconst
-%patch3 -p1 -b .DW_OP_deref
-%patch4 -p1 -b .sse2
-%patch5 -p1 -b .out-of-stack
-%patch6 -p1 -b .out-of-stack
-%patch7 -p1 -b .bootstrap-libdir
-%patch8 -p1 -b .bootstrap-libdir-relative
+%patch1 -p1 -b .dist-rustfmt
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -328,6 +310,9 @@ sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %if %without bundled_llvm
 rm -rf src/llvm/
 %endif
+
+# We never enable emscripten.
+rm -rf src/llvm-emscripten/
 
 # extract bundled licenses for packaging
 cp src/rt/hoedown/LICENSE src/rt/hoedown/LICENSE-hoedown
@@ -391,6 +376,7 @@ find src/vendor -name .cargo-checksum.json \
   --release-channel=%{channel}
 
 %{python} ./x.py build
+%{python} ./x.py build src/tools/rustfmt
 %{python} ./x.py doc
 
 
@@ -400,6 +386,7 @@ find src/vendor -name .cargo-checksum.json \
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
+DESTDIR=%{buildroot} %{python} ./x.py install rustfmt
 DESTDIR=%{buildroot} %{python} ./x.py install src
 
 
@@ -436,6 +423,7 @@ rm -f %{buildroot}%{_docdir}/%{name}/README.md
 rm -f %{buildroot}%{_docdir}/%{name}/COPYRIGHT
 rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-APACHE
 rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-MIT
+rm -f %{buildroot}%{_docdir}/%{name}/*.old
 
 # Sanitize the HTML documentation
 find %{buildroot}%{_docdir}/%{name}/html -empty -delete
@@ -454,6 +442,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 # The results are not stable on koji, so mask errors and just log it.
 %{python} ./x.py test --no-fail-fast || :
+%{python} ./x.py test --no-fail-fast src/tools/rustfmt || :
 
 
 %ldconfig_scriptlets
@@ -473,6 +462,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %dir %{rustlibdir}/%{rust_triple}
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
+%{rustlibdir}/%{rust_triple}/codegen-backends/
 
 
 %files std-static
@@ -508,8 +498,16 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %{_docdir}/%{name}/html/*.html
 %{_docdir}/%{name}/html/*.css
 %{_docdir}/%{name}/html/*.js
+%{_docdir}/%{name}/html/*.svg
 %{_docdir}/%{name}/html/*.woff
 %license %{_docdir}/%{name}/html/*.txt
+
+
+%files -n rustfmt-preview
+%{_bindir}/rustfmt
+%{_bindir}/cargo-fmt
+%doc src/tools/rustfmt/{README,CHANGELOG,Configurations}.md
+%license src/tools/rustfmt/LICENSE-{APACHE,MIT}
 
 
 %files src
@@ -518,6 +516,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Mon Mar 26 2018 Josh Stone <jistone@redhat.com> - 1.25.0-0.1.beta.13
+- beta test
+
 * Thu Mar 01 2018 Josh Stone <jistone@redhat.com> - 1.24.1-1
 - Update to 1.24.1.
 

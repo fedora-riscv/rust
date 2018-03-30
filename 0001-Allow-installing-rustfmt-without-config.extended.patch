@@ -1,0 +1,27 @@
+From 86f7d8939d19d42e21d4e794e648f0aef14eeec9 Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Thu, 22 Mar 2018 18:31:32 -0700
+Subject: [PATCH] Allow installing rustfmt without config.extended
+
+This assertion was preventing `./x.py install rustfmt` if attempted
+without an "extended" build configuration, but it actually builds and
+installs just fine.
+---
+ src/bootstrap/dist.rs | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/bootstrap/dist.rs b/src/bootstrap/dist.rs
+index eca06eac7f30..142296b20958 100644
+--- a/src/bootstrap/dist.rs
++++ b/src/bootstrap/dist.rs
+@@ -1186,7 +1186,6 @@ impl Step for Rustfmt {
+         let build = builder.build;
+         let stage = self.stage;
+         let target = self.target;
+-        assert!(build.config.extended);
+ 
+         println!("Dist Rustfmt stage{} ({})", stage, target);
+         let src = build.src.join("src/tools/rustfmt");
+-- 
+2.14.3
+

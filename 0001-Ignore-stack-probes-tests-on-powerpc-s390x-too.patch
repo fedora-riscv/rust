@@ -1,0 +1,54 @@
+From b404ec4b4880db7f6aea23ebf778869dfd6ecf99 Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Thu, 29 Mar 2018 10:25:32 -0700
+Subject: [PATCH] Ignore stack-probes tests on powerpc/s390x too
+
+We only support stack probes on x86 and x86_64.
+Other arches are already ignored.
+---
+ src/test/codegen/stack-probes.rs      | 1 +
+ src/test/run-pass/stack-probes-lto.rs | 2 ++
+ src/test/run-pass/stack-probes.rs     | 2 ++
+ 3 files changed, 5 insertions(+)
+
+diff --git a/src/test/codegen/stack-probes.rs b/src/test/codegen/stack-probes.rs
+index af400ff3bcbd..51ebc42a0dd6 100644
+--- a/src/test/codegen/stack-probes.rs
++++ b/src/test/codegen/stack-probes.rs
+@@ -11,6 +11,7 @@
+ // ignore-arm
+ // ignore-aarch64
+ // ignore-powerpc
++// ignore-s390x
+ // ignore-aarch64
+ // ignore-wasm
+ // ignore-emscripten
+diff --git a/src/test/run-pass/stack-probes-lto.rs b/src/test/run-pass/stack-probes-lto.rs
+index e7fa3bc0a75c..d1cb75909c15 100644
+--- a/src/test/run-pass/stack-probes-lto.rs
++++ b/src/test/run-pass/stack-probes-lto.rs
+@@ -10,6 +10,8 @@
+ 
+ // ignore-arm
+ // ignore-aarch64
++// ignore-powerpc
++// ignore-s390x
+ // ignore-wasm
+ // ignore-cloudabi no processes
+ // ignore-emscripten no processes
+diff --git a/src/test/run-pass/stack-probes.rs b/src/test/run-pass/stack-probes.rs
+index 67b3962ee5fb..78c5782be383 100644
+--- a/src/test/run-pass/stack-probes.rs
++++ b/src/test/run-pass/stack-probes.rs
+@@ -10,6 +10,8 @@
+ 
+ // ignore-arm
+ // ignore-aarch64
++// ignore-powerpc
++// ignore-s390x
+ // ignore-wasm
+ // ignore-cloudabi no processes
+ // ignore-emscripten no processes
+-- 
+2.14.3
+

@@ -8,10 +8,10 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.24.0
-%global bootstrap_cargo 0.25.0
+%global bootstrap_rust 1.25.0
+%global bootstrap_cargo 0.26.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-02-15
+%global bootstrap_date 2018-03-29
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -47,16 +47,16 @@
 %endif
 
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
-%global rustc_version 1.25.0
-%global cargo_version 0.26.0
-%global rustfmt_version 0.3.8
-%global rls_version 0.125.1
+%global rustc_version 1.26.0
+%global cargo_version %{rustc_version}
+%global rustfmt_version 0.4.1
+%global rls_version 0.126.0
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        3%{?dist}
+Release:        0.1.beta.18%{?dist}
 Summary:        The Rust Programming Language
-License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
+License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
 URL:            https://www.rust-lang.org
 ExclusiveArch:  %{rust_arches}
@@ -68,11 +68,9 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-lang/rust/pull/49484
-Patch1:         0001-Ignore-stack-probes-tests-on-powerpc-s390x-too.patch
-
+# rustbuild: allow building tools with debuginfo
 # https://github.com/rust-lang/rust/pull/49959
-Patch2:         pull-49959.patch
+Patch1:         pull-49959.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -172,7 +170,6 @@ BuildRequires:  procps-ng
 BuildRequires:  gdb
 
 # TODO: work on unbundling these!
-Provides:       bundled(hoedown) = 3.0.7
 Provides:       bundled(jquery) = 2.1.4
 Provides:       bundled(libbacktrace) = 6.1.0
 Provides:       bundled(miniz) = 1.16~beta+r1
@@ -374,8 +371,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -b .ignore-ibm
-%patch2 -p1
+%patch1 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -392,7 +388,6 @@ rm -rf src/llvm/
 rm -rf src/llvm-emscripten/
 
 # extract bundled licenses for packaging
-cp src/rt/hoedown/LICENSE src/rt/hoedown/LICENSE-hoedown
 sed -e '/*\//q' src/libbacktrace/backtrace.h \
   >src/libbacktrace/LICENSE-libbacktrace
 
@@ -558,7 +553,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %files
 %license COPYRIGHT LICENSE-APACHE LICENSE-MIT
 %license src/libbacktrace/LICENSE-libbacktrace
-%license src/rt/hoedown/LICENSE-hoedown
 %doc README.md
 %{_bindir}/rustc
 %{_bindir}/rustdoc
@@ -648,6 +642,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Fri May 04 2018 Josh Stone <jistone@redhat.com> - -0.1.beta.18
+- beta test
+
 * Mon Apr 16 2018 Dan Callaghan <dcallagh@redhat.com> - 1.25.0-3
 - Add cargo, rls, and analysis
 

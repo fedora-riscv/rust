@@ -8,10 +8,10 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.24.0
-%global bootstrap_cargo 0.25.0
+%global bootstrap_rust 1.25.0
+%global bootstrap_cargo 0.26.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-02-15
+%global bootstrap_date 2018-03-29
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -27,6 +27,13 @@
 %bcond_with bundled_llvm
 %endif
 
+# Some targets don't have libgit2
+%if 0%{?rhel} && !0%{?epel}
+%bcond_without bundled_libgit2
+%else
+%bcond_with bundled_libgit2
+%endif
+
 # LLDB only works on some architectures
 %ifarch %{arm} aarch64 %{ix86} x86_64
 # LLDB isn't available everywhere...
@@ -39,31 +46,31 @@
 %bcond_with lldb
 %endif
 
-
+# Some sub-packages are versioned independently of the rust compiler and runtime itself.
+%global rustc_version 1.26.0
+%global cargo_version %{rustc_version}
+%global rustfmt_version 0.4.1
+%global rls_version 0.126.0
 
 Name:           rust
-Version:        1.25.0
+Version:        %{rustc_version}
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
-License:        (ASL 2.0 or MIT) and (BSD and ISC and MIT)
+License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
 URL:            https://www.rust-lang.org
 ExclusiveArch:  %{rust_arches}
 
 %if "%{channel}" == "stable"
-%global rustc_package rustc-%{version}-src
+%global rustc_package rustc-%{rustc_version}-src
 %else
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-lang/rust/pull/49290
-Patch1:         0001-Allow-installing-rustfmt-without-config.extended.patch
-
-# https://github.com/rust-lang/rust/pull/49484
-Patch2:         0001-Ignore-stack-probes-tests-on-powerpc-s390x-too.patch
-
-Patch100:       binaryen-cmake-aarch64.patch
+# rustbuild: allow building tools with debuginfo
+# https://github.com/rust-lang/rust/pull/49959
+Patch1:         pull-49959.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -109,10 +116,10 @@ Provides:       bundled(%{name}-bootstrap) = %{bootstrap_rust}
 %else
 BuildRequires:  cargo >= %{bootstrap_cargo}
 %if 0%{?fedora} >= 27
-BuildRequires:  (%{name} >= %{bootstrap_rust} with %{name} <= %{version})
+BuildRequires:  (%{name} >= %{bootstrap_rust} with %{name} <= %{rustc_version})
 %else
 BuildRequires:  %{name} >= %{bootstrap_rust}
-BuildConflicts: %{name} > %{version}
+BuildConflicts: %{name} > %{rustc_version}
 %endif
 %global local_rust_root %{_prefix}
 %endif
@@ -121,8 +128,12 @@ BuildRequires:  make
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  ncurses-devel
-BuildRequires:  zlib-devel
 BuildRequires:  curl
+BuildRequires:  pkgconfig(libcurl)
+BuildRequires:  pkgconfig(liblzma)
+BuildRequires:  pkgconfig(libssh2)
+BuildRequires:  pkgconfig(openssl)
+BuildRequires:  pkgconfig(zlib)
 
 %if 0%{?rhel} && 0%{?rhel} <= 7
 %global python python2
@@ -159,17 +170,16 @@ BuildRequires:  procps-ng
 BuildRequires:  gdb
 
 # TODO: work on unbundling these!
-Provides:       bundled(hoedown) = 3.0.7
 Provides:       bundled(jquery) = 2.1.4
 Provides:       bundled(libbacktrace) = 6.1.0
 Provides:       bundled(miniz) = 1.16~beta+r1
 
 # Virtual provides for folks who attempt "dnf install rustc"
-Provides:       rustc = %{version}-%{release}
-Provides:       rustc%{?_isa} = %{version}-%{release}
+Provides:       rustc = %{rustc_version}-%{release}
+Provides:       rustc%{?_isa} = %{rustc_version}-%{release}
 
 # Always require our exact standard library
-Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
+Requires:       %{name}-std-static%{?_isa} = %{rustc_version}-%{release}
 
 # The C compiler is needed at runtime just for linking.  Someday rustc might
 # invoke the linker directly, and then we'll only need binutils.
@@ -177,7 +187,7 @@ Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
 Requires:       /usr/bin/cc
 
 # ALL Rust libraries are private, because they don't keep an ABI.
-%global _privatelibs lib.*-[[:xdigit:]]*[.]so.*
+%global _privatelibs lib(.*-[[:xdigit:]]*|rustc.*)[.]so.*
 %global __provides_exclude ^(%{_privatelibs})$
 %global __requires_exclude ^(%{_privatelibs})$
 %global __provides_exclude_from ^%{_docdir}/.*$
@@ -230,7 +240,7 @@ This package includes the common functionality for %{name}-gdb and %{name}-lldb.
 Summary:        GDB pretty printers for Rust
 BuildArch:      noarch
 Requires:       gdb
-Requires:       %{name}-debugger-common = %{version}-%{release}
+Requires:       %{name}-debugger-common = %{rustc_version}-%{release}
 
 %description gdb
 This package includes the rust-gdb script, which allows easier debugging of Rust
@@ -247,7 +257,7 @@ Summary:        LLDB pretty printers for Rust
 
 Requires:       lldb
 Requires:       python2-lldb
-Requires:       %{name}-debugger-common = %{version}-%{release}
+Requires:       %{name}-debugger-common = %{rustc_version}-%{release}
 
 %description lldb
 This package includes the rust-lldb script, which allows easier debugging of Rust
@@ -268,18 +278,66 @@ This package includes HTML documentation for the Rust programming language and
 its standard library.
 
 
+%package -n cargo
+Summary:        Rust's package manager and build tool
+Version:        %{cargo_version}
+%if %with bundled_libgit2
+Provides:       bundled(libgit2) = 0.26.0
+%else
+BuildRequires:  pkgconfig(libgit2) >= 0.24
+%endif
+# For tests:
+BuildRequires:  git
+# Cargo is not much use without Rust
+Requires:       rust
+
+%description -n cargo
+Cargo is a tool that allows Rust projects to declare their various dependencies
+and ensure that you'll always get a repeatable build.
+
+
+%package -n cargo-doc
+Summary:        Documentation for Cargo
+Version:        %{cargo_version}
+BuildArch:      noarch
+# Cargo no longer builds its own documentation
+# https://github.com/rust-lang/cargo/pull/4904
+Requires:       rust-doc
+
+%description -n cargo-doc
+This package includes HTML documentation for Cargo.
+
+
 %package -n rustfmt-preview
 Summary:        Tool to find and fix Rust formatting issues
-Version:        0.3.8
+Version:        %{rustfmt_version}
 Requires:       cargo
 
 # Despite the lower version, our rustfmt-preview is newer than rustfmt-0.9.
 # It's expected to stay "preview" until it's released as 1.0.
 Obsoletes:      rustfmt <= 0.9.0
-Provides:       rustfmt = %{version}
+Provides:       rustfmt = %{rustfmt_version}
 
 %description -n rustfmt-preview
 A tool for formatting Rust code according to style guidelines.
+
+
+%package -n rls-preview
+Summary:        Rust Language Server for IDE integration
+Version:        %{rls_version}
+Provides:       rls = %{rls_version}
+%if %with bundled_libgit2
+Provides:       bundled(libgit2) = 0.26.0
+%endif
+Requires:       rust-analysis
+# /usr/bin/rls is dynamically linked against internal rustc libs
+Requires:       %{name}%{?_isa} = %{rustc_version}-%{release}
+
+%description -n rls-preview
+The Rust Language Server provides a server that runs in the background,
+providing IDEs, editors, and other tools with information about Rust programs.
+It supports functionality such as 'goto definition', symbol search,
+reformatting, and code completion, and enables renaming and refactorings.
 
 
 %package src
@@ -289,6 +347,16 @@ BuildArch:      noarch
 %description src
 This package includes source files for the Rust standard library.  It may be
 useful as a reference for code completion tools in various editors.
+
+
+%package analysis
+Summary:        Compiler analysis data for the Rust standard library
+Requires:       rust-std-static%{?_isa} = %{rustc_version}-%{release}
+
+%description analysis
+This package contains analysis data files produced with rustc's -Zsave-analysis
+feature for the Rust standard library. The RLS (Rust Language Server) uses this
+data to provide information about the Rust standard library.
 
 
 %prep
@@ -303,12 +371,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -b .dist-rustfmt
-%patch2 -p1 -b .ignore-ibm
-
-pushd src/binaryen
-%patch100 -p1 -b .aarch64
-popd
+%patch1 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -325,7 +388,6 @@ rm -rf src/llvm/
 rm -rf src/llvm-emscripten/
 
 # extract bundled licenses for packaging
-cp src/rt/hoedown/LICENSE src/rt/hoedown/LICENSE-hoedown
 sed -e '/*\//q' src/libbacktrace/backtrace.h \
   >src/libbacktrace/LICENSE-libbacktrace
 
@@ -356,6 +418,11 @@ find src/vendor -name .cargo-checksum.json \
 
 %build
 
+%if %without bundled_libgit2
+# convince libgit2-sys to use the distro libgit2
+export LIBGIT2_SYS_USE_PKG_CONFIG=1
+%endif
+
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
 %{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
@@ -368,9 +435,9 @@ find src/vendor -name .cargo-checksum.json \
 %ifarch %{arm}
 # full debuginfo is exhausting memory; just do libstd for now
 # https://github.com/rust-lang/rust/issues/45854
-%define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-lines
+%define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
 %else
-%define enable_debuginfo --enable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-lines
+%define enable_debuginfo --enable-debuginfo --disable-debuginfo-only-std --enable-debuginfo-tools --disable-debuginfo-lines
 %endif
 
 %configure --disable-option-checking \
@@ -382,11 +449,11 @@ find src/vendor -name .cargo-checksum.json \
   --disable-jemalloc \
   --disable-rpath \
   %{enable_debuginfo} \
+  --enable-extended \
   --enable-vendor \
   --release-channel=%{channel}
 
 %{python} ./x.py build
-%{python} ./x.py build src/tools/rustfmt
 %{python} ./x.py doc
 
 
@@ -396,9 +463,6 @@ find src/vendor -name .cargo-checksum.json \
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
-DESTDIR=%{buildroot} %{python} ./x.py install rustfmt
-DESTDIR=%{buildroot} %{python} ./x.py install src
-
 
 # Make sure the shared libraries are in the proper libdir
 %if "%{_libdir}" != "%{common_libdir}"
@@ -433,11 +497,37 @@ rm -f %{buildroot}%{_docdir}/%{name}/README.md
 rm -f %{buildroot}%{_docdir}/%{name}/COPYRIGHT
 rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-APACHE
 rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-MIT
+rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-THIRD-PARTY
 rm -f %{buildroot}%{_docdir}/%{name}/*.old
 
 # Sanitize the HTML documentation
 find %{buildroot}%{_docdir}/%{name}/html -empty -delete
 find %{buildroot}%{_docdir}/%{name}/html -type f -exec chmod -x '{}' '+'
+
+# Create the path for crate-devel packages
+mkdir -p %{buildroot}%{_datadir}/cargo/registry
+
+# Cargo no longer builds its own documentation
+# https://github.com/rust-lang/cargo/pull/4904
+mkdir -p %{buildroot}%{_docdir}/cargo/html
+cat <<EOF > %{buildroot}%{_docdir}/cargo/html/index.html
+<!DOCTYPE HTML>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=../../rust/html/cargo/index.html">
+    <script type="text/javascript">
+      window.location.href = "../../rust/html/cargo/index.html"
+    </script>
+    <title>cargo-doc redirection</title>
+  </head>
+  <body>
+    Cargo documentation has been moved to the rust-doc package.
+    If you are not redirected automatically, please follow this
+    <a href="../../rust/html/cargo/index.html">link</a>.
+  </body>
+</html>
+EOF
 
 %if %without lldb
 rm -f %{buildroot}%{_bindir}/rust-lldb
@@ -452,7 +542,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 # The results are not stable on koji, so mask errors and just log it.
 %{python} ./x.py test --no-fail-fast || :
-%{python} ./x.py test --no-fail-fast src/tools/rustfmt || :
+%{python} ./x.py test --no-fail-fast cargo || :
+%{python} ./x.py test --no-fail-fast rls || :
+%{python} ./x.py test --no-fail-fast rustfmt || :
 
 
 %ldconfig_scriptlets
@@ -461,7 +553,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %files
 %license COPYRIGHT LICENSE-APACHE LICENSE-MIT
 %license src/libbacktrace/LICENSE-libbacktrace
-%license src/rt/hoedown/LICENSE-hoedown
 %doc README.md
 %{_bindir}/rustc
 %{_bindir}/rustdoc
@@ -513,6 +604,21 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %license %{_docdir}/%{name}/html/*.txt
 
 
+%files -n cargo
+%license src/tools/cargo/LICENSE-APACHE src/tools/cargo/LICENSE-MIT src/tools/cargo/LICENSE-THIRD-PARTY
+%doc src/tools/cargo/README.md
+%{_bindir}/cargo
+%{_mandir}/man1/cargo*.1*
+%{_sysconfdir}/bash_completion.d/cargo
+%{_datadir}/zsh/site-functions/_cargo
+%dir %{_datadir}/cargo
+%dir %{_datadir}/cargo/registry
+
+
+%files -n cargo-doc
+%{_docdir}/cargo/html
+
+
 %files -n rustfmt-preview
 %{_bindir}/rustfmt
 %{_bindir}/cargo-fmt
@@ -520,12 +626,31 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %license src/tools/rustfmt/LICENSE-{APACHE,MIT}
 
 
+%files -n rls-preview
+%{_bindir}/rls
+%doc src/tools/rls/{README.md,COPYRIGHT,debugging.md}
+%license src/tools/rls/LICENSE-{APACHE,MIT}
+
+
 %files src
 %dir %{rustlibdir}
 %{rustlibdir}/src
 
 
+%files analysis
+%{rustlibdir}/%{rust_triple}/analysis/
+
+
 %changelog
+* Thu May 10 2018 Josh Stone <jistone@redhat.com> - 1.26.0-1
+- Update to 1.26.0.
+
+* Mon Apr 16 2018 Dan Callaghan <dcallagh@redhat.com> - 1.25.0-3
+- Add cargo, rls, and analysis
+
+* Tue Apr 10 2018 Josh Stone <jistone@redhat.com> - 1.25.0-2
+- Filter codegen-backends from Provides too.
+
 * Thu Mar 29 2018 Josh Stone <jistone@redhat.com> - 1.25.0-1
 - Update to 1.25.0.
 

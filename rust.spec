@@ -47,14 +47,16 @@
 %endif
 
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
-%global rustc_version 1.26.0
-%global cargo_version %{rustc_version}
-%global rustfmt_version 0.4.1
+# Also beware that if any of these are not changed in a version bump, then the release
+# number should still increase, not be reset to 1!
+%global rustc_version 1.26.1
+%global cargo_version 1.26.0
+%global rustfmt_version 0.4.2
 %global rls_version 0.126.0
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -71,6 +73,9 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # rustbuild: allow building tools with debuginfo
 # https://github.com/rust-lang/rust/pull/49959
 Patch1:         pull-49959.patch
+
+# https://github.com/rust-lang/rust/pull/50789/
+Patch2:         0001-Ensure-libraries-built-in-stage0-have-unique-metadat.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -372,6 +377,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
+%patch2 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -642,6 +648,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Tue May 29 2018 Josh Stone <jistone@redhat.com> - 1.26.1-2
+- Update to 1.26.1.
+
 * Thu May 10 2018 Josh Stone <jistone@redhat.com> - 1.26.0-1
 - Update to 1.26.0.
 

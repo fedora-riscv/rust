@@ -49,14 +49,14 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.26.1
+%global rustc_version 1.26.2
 %global cargo_version 1.26.0
 %global rustfmt_version 0.4.2
 %global rls_version 0.126.0
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -421,6 +421,13 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 find src/vendor -name .cargo-checksum.json \
   -exec sed -i.uncheck -e 's/"files":{[^}]*}/"files":{ }/' '{}' '+'
 
+%if 0%{?fedora} >= 29
+  # gdb-8.1.50 snapshots are hanging our debuginfo-gdb tests on 32-bit platforms,
+  # so just skip these tests for now...
+  sed -i.gdb-hang -e '/Skip debuginfo/a if mode == "debuginfo-gdb" { return; }' \
+    src/bootstrap/test.rs
+%endif
+
 
 %build
 
@@ -438,7 +445,7 @@ export LIBGIT2_SYS_USE_PKG_CONFIG=1
 %global common_libdir %{_prefix}/lib
 %global rustlibdir %{common_libdir}/rustlib
 
-%ifarch %{arm}
+%ifarch %{arm} %{ix86}
 # full debuginfo is exhausting memory; just do libstd for now
 # https://github.com/rust-lang/rust/issues/45854
 %define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
@@ -648,6 +655,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Wed Jun 06 2018 Josh Stone <jistone@redhat.com> - 1.26.2-3
+- Update to 1.26.2.
+
 * Tue May 29 2018 Josh Stone <jistone@redhat.com> - 1.26.1-2
 - Update to 1.26.1.
 

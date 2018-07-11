@@ -652,6 +652,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %changelog
 * Tue Jul 10 2018 Josh Stone <jistone@redhat.com> - 1.27.1-2
 - Update to 1.27.1.
+- Security fix for CVE-2018-1000622
 
 * Thu Jun 21 2018 Josh Stone <jistone@redhat.com> - 1.27.0-1
 - Update to 1.27.0.

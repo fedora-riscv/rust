@@ -49,14 +49,14 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.27.0
+%global rustc_version 1.27.1
 %global cargo_version 1.27.0
 %global rustfmt_version 0.6.1
 %global rls_version 0.127.0
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -650,6 +650,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Tue Jul 10 2018 Josh Stone <jistone@redhat.com> - 1.27.1-2
+- Update to 1.27.1.
+
 * Thu Jun 21 2018 Josh Stone <jistone@redhat.com> - 1.27.0-1
 - Update to 1.27.0.
 

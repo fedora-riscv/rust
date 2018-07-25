@@ -8,10 +8,11 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.txt
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_rust 1.25.0
-%global bootstrap_cargo 0.26.0
+# Note that cargo matches the program version here, not its crate version.
+%global bootstrap_rust 1.26.0
+%global bootstrap_cargo 1.26.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-03-29
+%global bootstrap_date 2018-05-10
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -27,12 +28,11 @@
 %bcond_with bundled_llvm
 %endif
 
-# Some targets don't have libgit2
-%if 0%{?rhel} && !0%{?epel}
+# libgit2-sys expects to use its bundled library, which is sometimes just a
+# snapshot of libgit2's master branch.  This can mean the FFI declarations
+# won't match our released libgit2.so, e.g. having changed struct fields.
+# So, tread carefully if you toggle this...
 %bcond_without bundled_libgit2
-%else
-%bcond_with bundled_libgit2
-%endif
 
 # LLDB only works on some architectures
 %ifarch %{arm} aarch64 %{ix86} x86_64
@@ -47,14 +47,16 @@
 %endif
 
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
-%global rustc_version 1.26.0
-%global cargo_version %{rustc_version}
-%global rustfmt_version 0.4.1
-%global rls_version 0.126.0
+# Also beware that if any of these are not changed in a version bump, then the release
+# number should still increase, not be reset to 1!
+%global rustc_version 1.27.2
+%global cargo_version 1.27.0
+%global rustfmt_version 0.6.1
+%global rls_version 0.127.0
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        0.1.beta.18%{?dist}
+Release:        4%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -68,9 +70,12 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# rustbuild: allow building tools with debuginfo
-# https://github.com/rust-lang/rust/pull/49959
-Patch1:         pull-49959.patch
+# https://github.com/rust-lang/rust/pull/50789/
+Patch1:         0001-Ensure-libraries-built-in-stage0-have-unique-metadat.patch
+
+# https://github.com/rust-lang/rust/issues/51650
+# https://github.com/rust-lang-nursery/error-chain/pull/247
+Patch2:         0001-Fix-new-renamed_and_removed_lints-warning-247.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -146,7 +151,7 @@ BuildRequires:  %{python}
 BuildRequires:  cmake3 >= 3.4.3
 Provides:       bundled(llvm) = 6.0
 %else
-BuildRequires:  cmake >= 2.8.7
+BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
 %global llvm llvm5.0
 %endif
@@ -170,7 +175,6 @@ BuildRequires:  procps-ng
 BuildRequires:  gdb
 
 # TODO: work on unbundling these!
-Provides:       bundled(jquery) = 2.1.4
 Provides:       bundled(libbacktrace) = 6.1.0
 Provides:       bundled(miniz) = 1.16~beta+r1
 
@@ -282,9 +286,9 @@ its standard library.
 Summary:        Rust's package manager and build tool
 Version:        %{cargo_version}
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.26.0
+Provides:       bundled(libgit2) = 0.27
 %else
-BuildRequires:  pkgconfig(libgit2) >= 0.24
+BuildRequires:  pkgconfig(libgit2) >= 0.27
 %endif
 # For tests:
 BuildRequires:  git
@@ -327,7 +331,7 @@ Summary:        Rust Language Server for IDE integration
 Version:        %{rls_version}
 Provides:       rls = %{rls_version}
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.26.0
+Provides:       bundled(libgit2) = 0.27
 %endif
 Requires:       rust-analysis
 # /usr/bin/rls is dynamically linked against internal rustc libs
@@ -372,6 +376,10 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
+
+pushd src/vendor/error-chain
+%patch2 -p1
+popd
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -432,7 +440,7 @@ export LIBGIT2_SYS_USE_PKG_CONFIG=1
 %global common_libdir %{_prefix}/lib
 %global rustlibdir %{common_libdir}/rustlib
 
-%ifarch %{arm}
+%ifarch %{arm} %{ix86}
 # full debuginfo is exhausting memory; just do libstd for now
 # https://github.com/rust-lang/rust/issues/45854
 %define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
@@ -642,8 +650,31 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Fri May 04 2018 Josh Stone <jistone@redhat.com> - -0.1.beta.18
-- beta test
+* Tue Jul 24 2018 Josh Stone <jistone@redhat.com> - 1.27.2-4
+- Update to 1.27.2.
+
+* Sat Jul 14 2018 Fedora Release Engineering <releng@fedoraproject.org> - 1.27.1-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_29_Mass_Rebuild
+
+* Tue Jul 10 2018 Josh Stone <jistone@redhat.com> - 1.27.1-2
+- Update to 1.27.1.
+- Security fix for CVE-2018-1000622
+
+* Thu Jun 21 2018 Josh Stone <jistone@redhat.com> - 1.27.0-1
+- Update to 1.27.0.
+
+* Tue Jun 05 2018 Josh Stone <jistone@redhat.com> - 1.26.2-4
+- Rebuild without bootstrap binaries.
+
+* Tue Jun 05 2018 Josh Stone <jistone@redhat.com> - 1.26.2-3
+- Update to 1.26.2.
+- Re-bootstrap to deal with LLVM symbol changes.
+
+* Tue May 29 2018 Josh Stone <jistone@redhat.com> - 1.26.1-2
+- Update to 1.26.1.
+
+* Thu May 10 2018 Josh Stone <jistone@redhat.com> - 1.26.0-1
+- Update to 1.26.0.
 
 * Mon Apr 16 2018 Dan Callaghan <dcallagh@redhat.com> - 1.25.0-3
 - Add cargo, rls, and analysis

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.26.0
-%global bootstrap_cargo 1.26.0
+%global bootstrap_rust 1.27.2
+%global bootstrap_cargo 1.27.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-05-10
+%global bootstrap_date 2018-07-20
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -49,14 +49,14 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.27.2
-%global cargo_version 1.27.0
-%global rustfmt_version 0.6.1
-%global rls_version 0.127.0
+%global rustc_version 1.28.0
+%global cargo_version 1.28.0
+%global rustfmt_version 0.8.2
+%global rls_version 0.128.0
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        3%{?dist}
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -70,12 +70,11 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-lang/rust/pull/50789/
-Patch1:         0001-Ensure-libraries-built-in-stage0-have-unique-metadat.patch
+# https://github.com/rust-lang/rust/pull/52760
+Patch1:         rust-52760-test_loading_atoi.patch
 
-# https://github.com/rust-lang/rust/issues/51650
-# https://github.com/rust-lang-nursery/error-chain/pull/247
-Patch2:         0001-Fix-new-renamed_and_removed_lints-warning-247.patch
+# https://github.com/rust-lang/rust/pull/52876
+Patch2:         rust-52876-const-endianess.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -175,7 +174,7 @@ BuildRequires:  procps-ng
 BuildRequires:  gdb
 
 # TODO: work on unbundling these!
-Provides:       bundled(libbacktrace) = 6.1.0
+Provides:       bundled(libbacktrace) = 8.1.0
 Provides:       bundled(miniz) = 1.16~beta+r1
 
 # Virtual provides for folks who attempt "dnf install rustc"
@@ -376,10 +375,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
-
-pushd src/vendor/error-chain
 %patch2 -p1
-popd
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -459,6 +455,7 @@ export LIBGIT2_SYS_USE_PKG_CONFIG=1
   %{enable_debuginfo} \
   --enable-extended \
   --enable-vendor \
+  --enable-verbose-tests \
   --release-channel=%{channel}
 
 %{python} ./x.py build
@@ -650,6 +647,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Wed Aug 08 2018 Josh Stone <jistone@redhat.com> - 1.28.0-1
+- Update to 1.28.0.
+
 * Tue Jul 24 2018 Josh Stone <jistone@redhat.com> - 1.27.2-3
 - Update to 1.27.2.
 

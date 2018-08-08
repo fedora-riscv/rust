@@ -76,6 +76,11 @@ Patch1:         rust-52760-test_loading_atoi.patch
 # https://github.com/rust-lang/rust/pull/52876
 Patch2:         rust-52876-const-endianess.patch
 
+# https://github.com/rust-lang/rust/issues/53204
+# From https://github.com/rust-lang/rust/pull/50949
+# This second commit causes problems with LLVM 5 debuginfo -- reverting.
+Patch3:         0001-rustc_codegen_llvm-remove-closure-env-alloca-hack-ar.patch
+
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
   local abi = "gnu"
@@ -376,6 +381,8 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1
 %patch2 -p1
+
+%patch3 -p1 -R
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure

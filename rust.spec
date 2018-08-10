@@ -501,6 +501,9 @@ find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' \
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
 find %{buildroot}%{rustlibdir} -maxdepth 1 -type f -exec rm -v '{}' '+'
 
+# Remove backup files from %%configure munging
+find %{buildroot}%{rustlibdir} -type f -name '*.orig' -exec rm -v '{}' '+'
+
 # FIXME: __os_install_post will strip the rlibs
 # -- should we find a way to preserve debuginfo?
 

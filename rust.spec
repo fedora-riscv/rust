@@ -56,7 +56,7 @@
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -647,6 +647,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Aug 09 2018 Josh Stone <jistone@redhat.com> - 1.28.0-2
+- Rebuild for LLVM ppc64/s390x fixes
+
 * Wed Aug 08 2018 Josh Stone <jistone@redhat.com> - 1.28.0-1
 - Update to 1.28.0.
 

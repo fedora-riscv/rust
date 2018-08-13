@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.27.0
+%global bootstrap_rust 1.27.2
 %global bootstrap_cargo 1.27.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-06-21
+%global bootstrap_date 2018-07-20
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -56,7 +56,7 @@
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        0.1.beta.14%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -69,6 +69,12 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
+
+# https://github.com/rust-lang/rust/pull/52760
+Patch1:         rust-52760-test_loading_atoi.patch
+
+# https://github.com/rust-lang/rust/pull/52876
+Patch2:         rust-52876-const-endianess.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -148,6 +154,9 @@ BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
 %global llvm llvm5.0
 %endif
+%if 0%{?fedora} >= 29
+%global llvm llvm6.0
+%endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
 %else
@@ -168,7 +177,7 @@ BuildRequires:  procps-ng
 BuildRequires:  gdb
 
 # TODO: work on unbundling these!
-Provides:       bundled(libbacktrace) = 6.1.0
+Provides:       bundled(libbacktrace) = 8.1.0
 Provides:       bundled(miniz) = 1.16~beta+r1
 
 # Virtual provides for folks who attempt "dnf install rustc"
@@ -187,8 +196,8 @@ Requires:       /usr/bin/cc
 %global _privatelibs lib(.*-[[:xdigit:]]*|rustc.*)[.]so.*
 %global __provides_exclude ^(%{_privatelibs})$
 %global __requires_exclude ^(%{_privatelibs})$
-%global __provides_exclude_from ^%{_docdir}/.*$
-%global __requires_exclude_from ^%{_docdir}/.*$
+%global __provides_exclude_from ^(%{_docdir}|%{rustlibdir}/src)/.*$
+%global __requires_exclude_from ^(%{_docdir}|%{rustlibdir}/src)/.*$
 
 # While we don't want to encourage dynamic linking to Rust shared libraries, as
 # there's no stable ABI, we still need the unallocated metadata (.rustc) to
@@ -368,6 +377,9 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
+%patch1 -p1
+%patch2 -p1
+
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %endif
@@ -446,6 +458,7 @@ export LIBGIT2_SYS_USE_PKG_CONFIG=1
   %{enable_debuginfo} \
   --enable-extended \
   --enable-vendor \
+  --enable-verbose-tests \
   --release-channel=%{channel}
 
 %{python} ./x.py build
@@ -483,6 +496,9 @@ find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' \
 
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
 find %{buildroot}%{rustlibdir} -maxdepth 1 -type f -exec rm -v '{}' '+'
+
+# Remove backup files from %%configure munging
+find %{buildroot}%{rustlibdir} -type f -name '*.orig' -exec rm -v '{}' '+'
 
 # FIXME: __os_install_post will strip the rlibs
 # -- should we find a way to preserve debuginfo?
@@ -637,8 +653,14 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Thu Jul 26 2018 Josh Stone <jistone@redhat.com> - 1.28.0-0.1.beta.14
-- beta test
+* Mon Aug 13 2018 Josh Stone <jistone@redhat.com> - 1.28.0-3
+- Use llvm6.0 instead of llvm-7 for now
+
+* Tue Aug 07 2018 Josh Stone <jistone@redhat.com> - 1.28.0-2
+- Rebuild for LLVM ppc64/s390x fixes
+
+* Thu Aug 02 2018 Josh Stone <jistone@redhat.com> - 1.28.0-1
+- Update to 1.28.0.
 
 * Tue Jul 24 2018 Josh Stone <jistone@redhat.com> - 1.27.2-4
 - Update to 1.27.2.

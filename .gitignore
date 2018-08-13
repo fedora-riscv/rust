@@ -134,3 +134,11 @@
 /rust-1.26.0-x86_64-unknown-linux-gnu.tar.xz
 /rustc-1.27.1-src.tar.xz
 /rustc-1.27.2-src.tar.xz
+/rustc-1.28.0-src.tar.xz
+/rust-1.27.2-aarch64-unknown-linux-gnu.tar.xz
+/rust-1.27.2-armv7-unknown-linux-gnueabihf.tar.xz
+/rust-1.27.2-i686-unknown-linux-gnu.tar.xz
+/rust-1.27.2-powerpc64le-unknown-linux-gnu.tar.xz
+/rust-1.27.2-powerpc64-unknown-linux-gnu.tar.xz
+/rust-1.27.2-s390x-unknown-linux-gnu.tar.xz
+/rust-1.27.2-x86_64-unknown-linux-gnu.tar.xz

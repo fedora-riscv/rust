@@ -1,0 +1,37 @@
+From e0d8364dadd404a37bc344ef089926745cfdbe20 Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Tue, 14 Aug 2018 21:08:42 -0700
+Subject: [PATCH] std: Use target_pointer_width for BACKTRACE_ELF_SIZE
+
+The former code used `target.contains("64")` to detect Elf64 targets,
+but this is inaccurate in a few cases:
+
+- `s390x-unknown-linux-gnu` is 64-bit
+- `sparcv9-sun-solaris` is 64-bit
+- `x86_64-unknown-linux-gnux32` is 32-bit
+
+Instead the `std` build script can use `CARGO_CFG_TARGET_POINTER_WIDTH`
+to reliably detect 64-bit targets for libbacktrace.
+
+Also update to backtrace-sys 0.1.24 for alexcrichton/backtrace-rs#122.
+---
+ src/libstd/build.rs | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/libstd/build.rs b/src/libstd/build.rs
+index 26d93f97e69f..016e7adb4c91 100644
+--- a/src/libstd/build.rs
++++ b/src/libstd/build.rs
+@@ -104,7 +104,8 @@ fn build_libbacktrace(target: &str) -> Result<(), ()> {
+     } else {
+         build.file("../libbacktrace/elf.c");
+ 
+-        if target.contains("64") {
++        let pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap();
++        if pointer_width == "64" {
+             build.define("BACKTRACE_ELF_SIZE", "64");
+         } else {
+             build.define("BACKTRACE_ELF_SIZE", "32");
+-- 
+2.17.1
+

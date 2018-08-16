@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.27.2
-%global bootstrap_cargo 1.27.0
+%global bootstrap_rust 1.28.0
+%global bootstrap_cargo 1.28.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-07-20
+%global bootstrap_date 2018-08-02
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -21,7 +21,7 @@
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 3.9+.
+# is insufficient.  Rust currently requires LLVM 5.0+.
 %if 0%{?rhel} && !0%{?epel}
 %bcond_without bundled_llvm
 %else
@@ -33,6 +33,12 @@
 # won't match our released libgit2.so, e.g. having changed struct fields.
 # So, tread carefully if you toggle this...
 %bcond_without bundled_libgit2
+
+%if 0%{?rhel}
+%bcond_without bundled_libssh2
+%else
+%bcond_with bundled_libssh2
+%endif
 
 # LLDB only works on some architectures
 %ifarch %{arm} aarch64 %{ix86} x86_64
@@ -49,14 +55,15 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.28.0
-%global cargo_version 1.28.0
-%global rustfmt_version 0.8.2
-%global rls_version 0.128.0
+%global rustc_version 1.29.0
+%global cargo_version 1.29.0
+%global rustfmt_version 0.99.1
+%global rls_version 0.130.0
+%global clippy_version 0.0.212
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        3%{?dist}
+Release:        0.1.beta.4%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -70,11 +77,22 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-lang/rust/pull/52760
-Patch1:         rust-52760-test_loading_atoi.patch
-
 # https://github.com/rust-lang/rust/pull/52876
-Patch2:         rust-52876-const-endianess.patch
+Patch1:         rust-52876-const-endianess.patch
+
+# https://github.com/rust-lang/rust/pull/53239
+Patch2:         0001-rustc_codegen_llvm-Restore-the-closure-env-alloca-ha.patch
+
+# https://github.com/alexcrichton/backtrace-rs/pull/122
+# https://github.com/rust-lang/rust/pull/53377
+Patch3:         0001-backtrace-sys-Use-target_pointer_width-for-BACKTRACE.patch
+Patch4:         0001-std-Use-target_pointer_width-for-BACKTRACE_ELF_SIZE.patch
+
+# https://github.com/rust-lang/rust/pull/53436
+Patch5:         0001-std-stop-backtracing-when-the-frames-are-full.patch
+
+# https://github.com/rust-lang/rust/pull/53437
+Patch6:         0001-Set-more-llvm-function-attributes-for-__rust_try.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -135,9 +153,17 @@ BuildRequires:  ncurses-devel
 BuildRequires:  curl
 BuildRequires:  pkgconfig(libcurl)
 BuildRequires:  pkgconfig(liblzma)
-BuildRequires:  pkgconfig(libssh2)
 BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(zlib)
+
+%if %without bundled_libgit2
+BuildRequires:  pkgconfig(libgit2) >= 0.27
+%endif
+
+%if %without bundled_libssh2
+# needs libssh2_userauth_publickey_frommemory
+BuildRequires:  pkgconfig(libssh2) >= 1.6.0
+%endif
 
 %if 0%{?rhel} && 0%{?rhel} <= 7
 %global python python2
@@ -148,14 +174,11 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 6.0
+Provides:       bundled(llvm) = 7.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
 %global llvm llvm5.0
-%endif
-%if 0%{?fedora} >= 29
-%global llvm llvm6.0
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -163,7 +186,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 3.9
+BuildRequires:  %{llvm}-devel >= 5.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -193,7 +216,7 @@ Requires:       %{name}-std-static%{?_isa} = %{rustc_version}-%{release}
 Requires:       /usr/bin/cc
 
 # ALL Rust libraries are private, because they don't keep an ABI.
-%global _privatelibs lib(.*-[[:xdigit:]]*|rustc.*)[.]so.*
+%global _privatelibs lib(.*-[[:xdigit:]]{16}*|rustc.*)[.]so.*
 %global __provides_exclude ^(%{_privatelibs})$
 %global __requires_exclude ^(%{_privatelibs})$
 %global __provides_exclude_from ^(%{_docdir}|%{rustlibdir}/src)/.*$
@@ -289,8 +312,9 @@ Summary:        Rust's package manager and build tool
 Version:        %{cargo_version}
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 0.27
-%else
-BuildRequires:  pkgconfig(libgit2) >= 0.27
+%endif
+%if %with bundled_libssh2
+Provides:       bundled(libssh2) = 1.8.1
 %endif
 # For tests:
 BuildRequires:  git
@@ -335,6 +359,9 @@ Provides:       rls = %{rls_version}
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 0.27
 %endif
+%if %with bundled_libssh2
+Provides:       bundled(libssh2) = 1.8.1
+%endif
 Requires:       rust-analysis
 # /usr/bin/rls is dynamically linked against internal rustc libs
 Requires:       %{name}%{?_isa} = %{rustc_version}-%{release}
@@ -344,6 +371,19 @@ The Rust Language Server provides a server that runs in the background,
 providing IDEs, editors, and other tools with information about Rust programs.
 It supports functionality such as 'goto definition', symbol search,
 reformatting, and code completion, and enables renaming and refactorings.
+
+
+%package -n clippy-preview
+Summary:        Lints to catch common mistakes and improve your Rust code
+Version:        %{clippy_version}
+License:        MPLv2.0
+Provides:       clippy = %{clippy_version}
+Requires:       cargo
+# /usr/bin/clippy-driver is dynamically linked against internal rustc libs
+Requires:       %{name}%{?_isa} = %{rustc_version}-%{release}
+
+%description -n clippy-preview
+A collection of lints to catch common mistakes and improve your Rust code.
 
 
 %package src
@@ -379,6 +419,12 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1
 %patch2 -p1
+pushd src/vendor/backtrace-sys
+%patch3 -p2
+popd
+%patch4 -p1
+%patch5 -p1
+%patch6 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -428,6 +474,11 @@ find src/vendor -name .cargo-checksum.json \
 %if %without bundled_libgit2
 # convince libgit2-sys to use the distro libgit2
 export LIBGIT2_SYS_USE_PKG_CONFIG=1
+%endif
+
+%if %without bundled_libssh2
+# convince libssh2-sys to use the distro libssh2
+export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %endif
 
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
@@ -506,6 +557,7 @@ find %{buildroot}%{rustlibdir} -type f -name '*.orig' -exec rm -v '{}' '+'
 # Remove unwanted documentation files (we already package them)
 rm -f %{buildroot}%{_docdir}/%{name}/README.md
 rm -f %{buildroot}%{_docdir}/%{name}/COPYRIGHT
+rm -f %{buildroot}%{_docdir}/%{name}/LICENSE
 rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-APACHE
 rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-MIT
 rm -f %{buildroot}%{_docdir}/%{name}/LICENSE-THIRD-PARTY
@@ -554,6 +606,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 # The results are not stable on koji, so mask errors and just log it.
 %{python} ./x.py test --no-fail-fast || :
 %{python} ./x.py test --no-fail-fast cargo || :
+%{python} ./x.py test --no-fail-fast clippy || :
 %{python} ./x.py test --no-fail-fast rls || :
 %{python} ./x.py test --no-fail-fast rustfmt || :
 
@@ -643,6 +696,13 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %license src/tools/rls/LICENSE-{APACHE,MIT}
 
 
+%files -n clippy-preview
+%{_bindir}/cargo-clippy
+%{_bindir}/clippy-driver
+%doc src/tools/clippy/{README.md,CHANGELOG.md}
+%license src/tools/clippy/LICENSE
+
+
 %files src
 %dir %{rustlibdir}
 %{rustlibdir}/src
@@ -653,6 +713,10 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Aug 16 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.4
+- beta test
+- Add a clippy-preview subpackage
+
 * Mon Aug 13 2018 Josh Stone <jistone@redhat.com> - 1.28.0-3
 - Use llvm6.0 instead of llvm-7 for now
 

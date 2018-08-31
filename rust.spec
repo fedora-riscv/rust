@@ -63,7 +63,7 @@
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        0.1.beta.4%{?dist}
+Release:        0.1.beta.7%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -80,19 +80,19 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # https://github.com/rust-lang/rust/pull/52876
 Patch1:         rust-52876-const-endianess.patch
 
-# https://github.com/rust-lang/rust/pull/53239
-Patch2:         0001-rustc_codegen_llvm-Restore-the-closure-env-alloca-ha.patch
-
 # https://github.com/alexcrichton/backtrace-rs/pull/122
 # https://github.com/rust-lang/rust/pull/53377
-Patch3:         0001-backtrace-sys-Use-target_pointer_width-for-BACKTRACE.patch
-Patch4:         0001-std-Use-target_pointer_width-for-BACKTRACE_ELF_SIZE.patch
+Patch2:         0001-backtrace-sys-Use-target_pointer_width-for-BACKTRACE.patch
+Patch3:         0001-std-Use-target_pointer_width-for-BACKTRACE_ELF_SIZE.patch
 
 # https://github.com/rust-lang/rust/pull/53436
-Patch5:         0001-std-stop-backtracing-when-the-frames-are-full.patch
+Patch4:         0001-std-stop-backtracing-when-the-frames-are-full.patch
 
 # https://github.com/rust-lang/rust/pull/53437
-Patch6:         0001-Set-more-llvm-function-attributes-for-__rust_try.patch
+Patch5:         0001-Set-more-llvm-function-attributes-for-__rust_try.patch
+
+# https://github.com/rust-lang/rust/pull/52969
+Patch6:         0001-rustbuild-fix-local_rebuild.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -332,7 +332,7 @@ Version:        %{cargo_version}
 BuildArch:      noarch
 # Cargo no longer builds its own documentation
 # https://github.com/rust-lang/cargo/pull/4904
-Requires:       rust-doc
+Requires:       rust-doc = %{rustc_version}-%{release}
 
 %description -n cargo-doc
 This package includes HTML documentation for Cargo.
@@ -418,10 +418,10 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
-%patch2 -p1
 pushd src/vendor/backtrace-sys
-%patch3 -p2
+%patch2 -p2
 popd
+%patch3 -p1
 %patch4 -p1
 %patch5 -p1
 %patch6 -p1
@@ -572,25 +572,8 @@ mkdir -p %{buildroot}%{_datadir}/cargo/registry
 
 # Cargo no longer builds its own documentation
 # https://github.com/rust-lang/cargo/pull/4904
-mkdir -p %{buildroot}%{_docdir}/cargo/html
-cat <<EOF > %{buildroot}%{_docdir}/cargo/html/index.html
-<!DOCTYPE HTML>
-<html lang="en-US">
-  <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=../../rust/html/cargo/index.html">
-    <script type="text/javascript">
-      window.location.href = "../../rust/html/cargo/index.html"
-    </script>
-    <title>cargo-doc redirection</title>
-  </head>
-  <body>
-    Cargo documentation has been moved to the rust-doc package.
-    If you are not redirected automatically, please follow this
-    <a href="../../rust/html/cargo/index.html">link</a>.
-  </body>
-</html>
-EOF
+mkdir -p %{buildroot}%{_docdir}/cargo
+ln -sT ../rust/html/cargo/ %{buildroot}%{_docdir}/cargo/html
 
 %if %without lldb
 rm -f %{buildroot}%{_bindir}/rust-lldb
@@ -680,6 +663,8 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %files -n cargo-doc
+%docdir %{_docdir}/cargo
+%dir %{_docdir}/cargo
 %{_docdir}/cargo/html
 
 
@@ -713,6 +698,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Aug 30 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.7
+- beta test
+
 * Thu Aug 16 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.4
 - beta test
 - Add a clippy-preview subpackage

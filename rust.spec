@@ -63,7 +63,7 @@
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        0.1.beta.7%{?dist}
+Release:        0.1.beta.12%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -80,19 +80,11 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # https://github.com/rust-lang/rust/pull/52876
 Patch1:         rust-52876-const-endianess.patch
 
-# https://github.com/alexcrichton/backtrace-rs/pull/122
-# https://github.com/rust-lang/rust/pull/53377
-Patch2:         0001-backtrace-sys-Use-target_pointer_width-for-BACKTRACE.patch
-Patch3:         0001-std-Use-target_pointer_width-for-BACKTRACE_ELF_SIZE.patch
-
 # https://github.com/rust-lang/rust/pull/53436
-Patch4:         0001-std-stop-backtracing-when-the-frames-are-full.patch
+Patch2:         0001-std-stop-backtracing-when-the-frames-are-full.patch
 
 # https://github.com/rust-lang/rust/pull/53437
-Patch5:         0001-Set-more-llvm-function-attributes-for-__rust_try.patch
-
-# https://github.com/rust-lang/rust/pull/52969
-Patch6:         0001-rustbuild-fix-local_rebuild.patch
+Patch3:         0001-Set-more-llvm-function-attributes-for-__rust_try.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -418,13 +410,8 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
-pushd src/vendor/backtrace-sys
-%patch2 -p2
-popd
+%patch2 -p1
 %patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -698,6 +685,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Wed Sep 05 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.12
+- beta test
+
 * Thu Aug 30 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.7
 - beta test
 

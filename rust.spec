@@ -63,7 +63,7 @@
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        0.1.beta.12%{?dist}
+Release:        0.1.beta.14%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -685,6 +685,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Mon Sep 10 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.14
+- beta test
+
 * Wed Sep 05 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.12
 - beta test
 

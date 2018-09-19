@@ -538,6 +538,10 @@ find %{buildroot}%{rustlibdir} -maxdepth 1 -type f -exec rm -v '{}' '+'
 # Remove backup files from %%configure munging
 find %{buildroot}%{rustlibdir} -type f -name '*.orig' -exec rm -v '{}' '+'
 
+# https://fedoraproject.org/wiki/Changes/Make_ambiguous_python_shebangs_error
+# We don't actually need to ship any of those python scripts in rust-src anyway.
+find %{buildroot}%{rustlibdir}/src -type f -name '*.py' -exec rm -v '{}' '+'
+
 # FIXME: __os_install_post will strip the rlibs
 # -- should we find a way to preserve debuginfo?
 
@@ -685,17 +689,8 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Mon Sep 10 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.14
-- beta test
-
-* Wed Sep 05 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.12
-- beta test
-
-* Thu Aug 30 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.7
-- beta test
-
-* Thu Aug 16 2018 Josh Stone <jistone@redhat.com> - 1.29.0-0.1.beta.4
-- beta test
+* Thu Sep 13 2018 Josh Stone <jistone@redhat.com> - 1.29.0-1
+- Update to 1.29.0.
 - Add a clippy-preview subpackage
 
 * Mon Aug 13 2018 Josh Stone <jistone@redhat.com> - 1.28.0-3

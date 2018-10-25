@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.28.0
-%global bootstrap_cargo 1.28.0
+%global bootstrap_rust 1.29.2
+%global bootstrap_cargo 1.29.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-08-02
+%global bootstrap_date 2018-10-12
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -55,15 +55,15 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.29.2
-%global cargo_version 1.29.0
-%global rustfmt_version 0.99.1
-%global rls_version 0.130.0
+%global rustc_version 1.30.0
+%global cargo_version 1.30.0
+%global rustfmt_version 0.99.4
+%global rls_version 0.130.5
 %global clippy_version 0.0.212
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        3%{?dist}
+Release:        6%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -76,15 +76,6 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
-
-# https://github.com/rust-lang/rust/pull/52876
-Patch1:         rust-52876-const-endianess.patch
-
-# https://github.com/rust-lang/rust/pull/53436
-Patch2:         0001-std-stop-backtracing-when-the-frames-are-full.patch
-
-# https://github.com/rust-lang/rust/pull/53437
-Patch3:         0001-Set-more-llvm-function-attributes-for-__rust_try.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -409,10 +400,6 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1
-%patch2 -p1
-%patch3 -p1
-
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %endif
@@ -427,14 +414,14 @@ rm -rf src/llvm/
 # We never enable emscripten.
 rm -rf src/llvm-emscripten/
 
+# We never enable other LLVM tools.
+rm -rf src/tools/clang
+rm -rf src/tools/lld
+rm -rf src/tools/lldb
+
 # extract bundled licenses for packaging
 sed -e '/*\//q' src/libbacktrace/backtrace.h \
   >src/libbacktrace/LICENSE-libbacktrace
-
-# This tests a problem of exponential growth, which seems to be less-reliably
-# fixed when running on older LLVM and/or some arches.  Just skip it for now.
-sed -i.ignore -e '1i // ignore-test may still be exponential...' \
-  src/test/run-pass/issue-41696.rs
 
 %if %{with bundled_llvm} && 0%{?epel}
 mkdir -p cmake-bin
@@ -480,7 +467,13 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %ifarch %{arm} %{ix86}
 # full debuginfo is exhausting memory; just do libstd for now
 # https://github.com/rust-lang/rust/issues/45854
+%if (0%{?fedora} && 0%{?fedora} < 27) || (0%{?rhel} && 0%{?rhel} <= 7)
+# Older rpmbuild didn't work with partial debuginfo coverage.
+%global debug_package %{nil}
+%define enable_debuginfo --disable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
+%else
 %define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
+%endif
 %else
 %define enable_debuginfo --enable-debuginfo --disable-debuginfo-only-std --enable-debuginfo-tools --disable-debuginfo-lines
 %endif
@@ -689,6 +682,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Oct 25 2018 Josh Stone <jistone@redhat.com> - 1.30.0-6
+- Update to 1.30.0.
+
 * Fri Oct 12 2018 Josh Stone <jistone@redhat.com> - 1.29.2-3
 - Update to 1.29.2.
 

@@ -16,6 +16,7 @@
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
+%global bootstrap_arches ppc64le
 
 # Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
@@ -684,6 +685,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %changelog
 * Thu Oct 25 2018 Josh Stone <jistone@redhat.com> - 1.30.0-6
 - Update to 1.30.0.
+- Re-bootstrap ppc64le for rust#54545
 
 * Fri Oct 12 2018 Josh Stone <jistone@redhat.com> - 1.29.2-3
 - Update to 1.29.2.

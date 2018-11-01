@@ -16,7 +16,6 @@
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
-%global bootstrap_arches ppc64le
 
 # Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
@@ -64,7 +63,7 @@
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        6%{?dist}
+Release:        6%{?dist}.1
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -683,6 +682,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Nov 01 2018 Josh Stone <jistone@redhat.com> - 1.30.0-6.1
+- Rebuild without bootstrap binaries.
+
 * Thu Oct 25 2018 Josh Stone <jistone@redhat.com> - 1.30.0-6
 - Update to 1.30.0.
 - Re-bootstrap ppc64le for rust#54545

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.29.0
+%global bootstrap_rust 1.29.2
 %global bootstrap_cargo 1.29.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-09-13
+%global bootstrap_date 2018-10-12
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -55,7 +55,7 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.30.0
+%global rustc_version 1.30.1
 %global cargo_version 1.30.0
 %global rustfmt_version 0.99.4
 %global rls_version 0.130.5
@@ -63,7 +63,7 @@
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        0.1.beta.2%{?dist}
+Release:        7%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -467,7 +467,13 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %ifarch %{arm} %{ix86}
 # full debuginfo is exhausting memory; just do libstd for now
 # https://github.com/rust-lang/rust/issues/45854
+%if (0%{?fedora} && 0%{?fedora} < 27) || (0%{?rhel} && 0%{?rhel} <= 7)
+# Older rpmbuild didn't work with partial debuginfo coverage.
+%global debug_package %{nil}
+%define enable_debuginfo --disable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
+%else
 %define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
+%endif
 %else
 %define enable_debuginfo --enable-debuginfo --disable-debuginfo-only-std --enable-debuginfo-tools --disable-debuginfo-lines
 %endif
@@ -676,8 +682,24 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Thu Sep 20 2018 Josh Stone <jistone@redhat.com> - 1.30.0-0.1.beta.2
-- beta test
+* Thu Nov 08 2018 Josh Stone <jistone@redhat.com> - 1.30.1-7
+- Update to 1.30.1.
+
+* Thu Oct 25 2018 Josh Stone <jistone@redhat.com> - 1.30.0-6
+- Update to 1.30.0.
+
+* Mon Oct 22 2018 Josh Stone <jistone@redhat.com> - 1.29.2-5
+- Rebuild without bootstrap binaries.
+
+* Sat Oct 20 2018 Josh Stone <jistone@redhat.com> - 1.29.2-4
+- Re-bootstrap armv7hl due to rhbz#1639485
+
+* Fri Oct 12 2018 Josh Stone <jistone@redhat.com> - 1.29.2-3
+- Update to 1.29.2.
+
+* Tue Sep 25 2018 Josh Stone <jistone@redhat.com> - 1.29.1-2
+- Update to 1.29.1.
+- Security fix for str::repeat (pending CVE).
 
 * Thu Sep 13 2018 Josh Stone <jistone@redhat.com> - 1.29.0-1
 - Update to 1.29.0.

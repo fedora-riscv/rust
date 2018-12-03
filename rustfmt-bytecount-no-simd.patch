@@ -1,0 +1,43 @@
+--- src/tools/rustfmt/Cargo.toml	2018-11-25 01:44:10.000000000 -0800
++++ src/tools/rustfmt/Cargo.toml	2018-11-26 14:57:07.921495841 -0800
+@@ -51,7 +51,7 @@
+ rustc-ap-syntax = "297.0.0"
+ rustc-ap-syntax_pos = "297.0.0"
+ failure = "0.1.1"
+-bytecount = { version = "0.3", features = ["simd-accel"] }
++bytecount = { version = "0.3", features = [] }
+ 
+ # A noop dependency that changes in the Rust repository, it's a bit of a hack.
+ # See the `src/tools/rustc-workspace-hack/README.md` file in `rust-lang/rust`
+--- src/Cargo.lock	2018-11-25 01:42:12.000000000 -0800
++++ src/Cargo.lock	2018-11-26 15:21:01.917516541 -0800
+@@ -182,9 +182,6 @@
+ name = "bytecount"
+ version = "0.3.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-dependencies = [
+- "simd 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+-]
+ 
+ [[package]]
+ name = "byteorder"
+@@ -2651,11 +2648,6 @@
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ 
+ [[package]]
+-name = "simd"
+-version = "0.2.3"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-
+-[[package]]
+ name = "siphasher"
+ version = "0.2.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -3396,7 +3388,6 @@
+ "checksum serde_json 1.0.31 (registry+https://github.com/rust-lang/crates.io-index)" = "bb47a3d5c84320222f66d7db21157c4a7407755de41798f9b4c1c40593397b1a"
+ "checksum shell-escape 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "170a13e64f2a51b77a45702ba77287f5c6829375b04a69cf2222acd17d0cfab9"
+ "checksum shlex 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
+-"checksum simd 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0048b17eb9577ac545c61d85c3559b41dfb4cbea41c9bd9ca6a4f73ff05fda84"
+ "checksum siphasher 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "0df90a788073e8d0235a67e50441d47db7c8ad9debd91cbf43736a2a92d36537"
+ "checksum smallvec 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "153ffa32fd170e9944f7e0838edf824a754ec4c1fc64746fcc9fe1f8fa602e5d"
+ "checksum socket2 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "c4d11a52082057d87cb5caa31ad812f4504b97ab44732cd8359df2e9ff9f48e7"

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.29.2
-%global bootstrap_cargo 1.29.0
+%global bootstrap_rust 1.30.0
+%global bootstrap_cargo 1.30.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-10-12
+%global bootstrap_date 2018-10-25
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -55,15 +55,15 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.30.1
-%global cargo_version 1.30.0
-%global rustfmt_version 0.99.4
-%global rls_version 0.130.5
+%global rustc_version 1.31.0
+%global cargo_version 1.31.0
+%global rustfmt_version 1.0.0
+%global rls_version 1.31.6
 %global clippy_version 0.0.212
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        7%{?dist}
+Release:        0.1.beta.17%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -76,6 +76,10 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
+
+# rustfmt->bytecount->simd only works on i686, x86_64, and aarch64
+# https://github.com/rust-lang/rust/issues/56261
+Patch1:         rustfmt-bytecount-no-simd.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -157,7 +161,7 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 7.0
+Provides:       bundled(llvm) = 8.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
@@ -359,7 +363,6 @@ reformatting, and code completion, and enables renaming and refactorings.
 %package -n clippy-preview
 Summary:        Lints to catch common mistakes and improve your Rust code
 Version:        %{clippy_version}
-License:        MPLv2.0
 Provides:       clippy = %{clippy_version}
 Requires:       cargo
 # /usr/bin/clippy-driver is dynamically linked against internal rustc libs
@@ -399,6 +402,12 @@ test -f '%{local_rust_root}/bin/rustc'
 %endif
 
 %setup -q -n %{rustc_package}
+
+# rustfmt->bytecount->simd only works on i686, x86_64, and aarch64
+# https://github.com/rust-lang/rust/issues/56261
+%ifnarch i686 x86_64 aarch64
+%patch1 -p0
+%endif
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -669,7 +678,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %{_bindir}/cargo-clippy
 %{_bindir}/clippy-driver
 %doc src/tools/clippy/{README.md,CHANGELOG.md}
-%license src/tools/clippy/LICENSE
+%license src/tools/clippy/LICENSE-{APACHE,MIT}
 
 
 %files src
@@ -682,6 +691,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Sat Nov 17 2018 Josh Stone <jistone@redhat.com> - 1.31.0-0.1.beta.13
+- beta test
+
 * Thu Nov 08 2018 Josh Stone <jistone@redhat.com> - 1.30.1-7
 - Update to 1.30.1.
 

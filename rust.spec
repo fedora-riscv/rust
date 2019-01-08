@@ -55,15 +55,15 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.31.0
+%global rustc_version 1.31.1
 %global cargo_version 1.31.0
 %global rustfmt_version 1.0.0
-%global rls_version 1.31.6
+%global rls_version 1.31.7
 %global clippy_version 0.0.212
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -699,6 +699,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Mon Jan 07 2019 Josh Stone <jistone@redhat.com> - 1.31.1-9
+- Update to 1.31.1 for RLS fixes.
+
 * Thu Dec 06 2018 Josh Stone <jistone@redhat.com> - 1.31.0-8
 - Update to 1.31.0 -- Rust 2018!
 - clippy/rls/rustfmt are no longer -preview

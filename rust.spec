@@ -55,15 +55,15 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.31.0
+%global rustc_version 1.31.1
 %global cargo_version 1.31.0
 %global rustfmt_version 1.0.0
-%global rls_version 1.31.6
+%global rls_version 1.31.7
 %global clippy_version 0.0.212
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        0.1.beta.17%{?dist}
+Release:        9%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -77,9 +77,8 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# rustfmt->bytecount->simd only works on i686, x86_64, and aarch64
-# https://github.com/rust-lang/rust/issues/56261
-Patch1:         rustfmt-bytecount-no-simd.patch
+# https://github.com/rust-lang/rust/pull/56394
+Patch1:         0001-Deal-with-EINTR-in-net-timeout-tests.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -161,7 +160,7 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 8.0
+Provides:       bundled(llvm) = 8.0.0~svn
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
@@ -224,9 +223,14 @@ Requires:       /usr/bin/cc
 # Use hardening ldflags.
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 
-%if %{without bundled_llvm} && "%{llvm_root}" != "%{_prefix}"
+%if %{without bundled_llvm}
+%if 0%{?fedora} || 0%{?rhel} > 7 || 0%{?scl:1}
+%global llvm_has_filecheck 1
+%endif
+%if "%{llvm_root}" != "%{_prefix}"
 # https://github.com/rust-lang/rust/issues/40717
 %global library_path $(%{llvm_root}/bin/llvm-config --libdir)
+%endif
 %endif
 
 %description
@@ -301,7 +305,7 @@ Version:        %{cargo_version}
 Provides:       bundled(libgit2) = 0.27
 %endif
 %if %with bundled_libssh2
-Provides:       bundled(libssh2) = 1.8.1
+Provides:       bundled(libssh2) = 1.8.1~dev
 %endif
 # For tests:
 BuildRequires:  git
@@ -325,21 +329,20 @@ Requires:       rust-doc = %{rustc_version}-%{release}
 This package includes HTML documentation for Cargo.
 
 
-%package -n rustfmt-preview
+%package -n rustfmt
 Summary:        Tool to find and fix Rust formatting issues
 Version:        %{rustfmt_version}
 Requires:       cargo
 
-# Despite the lower version, our rustfmt-preview is newer than rustfmt-0.9.
-# It's expected to stay "preview" until it's released as 1.0.
-Obsoletes:      rustfmt <= 0.9.0
-Provides:       rustfmt = %{rustfmt_version}
+# The component/package was rustfmt-preview until Rust 1.31.
+Obsoletes:      rustfmt-preview < 1.0.0
+Provides:       rustfmt-preview = %{rustfmt_version}-%{release}
 
-%description -n rustfmt-preview
+%description -n rustfmt
 A tool for formatting Rust code according to style guidelines.
 
 
-%package -n rls-preview
+%package -n rls
 Summary:        Rust Language Server for IDE integration
 Version:        %{rls_version}
 Provides:       rls = %{rls_version}
@@ -347,20 +350,24 @@ Provides:       rls = %{rls_version}
 Provides:       bundled(libgit2) = 0.27
 %endif
 %if %with bundled_libssh2
-Provides:       bundled(libssh2) = 1.8.1
+Provides:       bundled(libssh2) = 1.8.1~dev
 %endif
 Requires:       rust-analysis
 # /usr/bin/rls is dynamically linked against internal rustc libs
 Requires:       %{name}%{?_isa} = %{rustc_version}-%{release}
 
-%description -n rls-preview
+# The component/package was rls-preview until Rust 1.31.
+Obsoletes:      rls-preview < 1.31.6
+Provides:       rls-preview = %{rls_version}-%{release}
+
+%description -n rls
 The Rust Language Server provides a server that runs in the background,
 providing IDEs, editors, and other tools with information about Rust programs.
 It supports functionality such as 'goto definition', symbol search,
 reformatting, and code completion, and enables renaming and refactorings.
 
 
-%package -n clippy-preview
+%package -n clippy
 Summary:        Lints to catch common mistakes and improve your Rust code
 Version:        %{clippy_version}
 Provides:       clippy = %{clippy_version}
@@ -368,7 +375,11 @@ Requires:       cargo
 # /usr/bin/clippy-driver is dynamically linked against internal rustc libs
 Requires:       %{name}%{?_isa} = %{rustc_version}-%{release}
 
-%description -n clippy-preview
+# The component/package was clippy-preview until Rust 1.31.
+Obsoletes:      clippy-preview <= 0.0.212
+Provides:       clippy-preview = %{clippy_version}-%{release}
+
+%description -n clippy
 A collection of lints to catch common mistakes and improve your Rust code.
 
 
@@ -403,11 +414,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-# rustfmt->bytecount->simd only works on i686, x86_64, and aarch64
-# https://github.com/rust-lang/rust/issues/56261
-%ifnarch i686 x86_64 aarch64
-%patch1 -p0
-%endif
+%patch1 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -491,7 +498,8 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
   --local-rust-root=%{local_rust_root} \
-  %{!?with_bundled_llvm: --llvm-root=%{llvm_root} --disable-codegen-tests \
+  %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
+    %{!?llvm_has_filecheck: --disable-codegen-tests} \
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
   --disable-jemalloc \
   --disable-rpath \
@@ -661,20 +669,20 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %{_docdir}/cargo/html
 
 
-%files -n rustfmt-preview
+%files -n rustfmt
 %{_bindir}/rustfmt
 %{_bindir}/cargo-fmt
 %doc src/tools/rustfmt/{README,CHANGELOG,Configurations}.md
 %license src/tools/rustfmt/LICENSE-{APACHE,MIT}
 
 
-%files -n rls-preview
+%files -n rls
 %{_bindir}/rls
 %doc src/tools/rls/{README.md,COPYRIGHT,debugging.md}
 %license src/tools/rls/LICENSE-{APACHE,MIT}
 
 
-%files -n clippy-preview
+%files -n clippy
 %{_bindir}/cargo-clippy
 %{_bindir}/clippy-driver
 %doc src/tools/clippy/{README.md,CHANGELOG.md}
@@ -691,8 +699,12 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Sat Nov 17 2018 Josh Stone <jistone@redhat.com> - 1.31.0-0.1.beta.13
-- beta test
+* Mon Jan 07 2019 Josh Stone <jistone@redhat.com> - 1.31.1-9
+- Update to 1.31.1 for RLS fixes.
+
+* Thu Dec 06 2018 Josh Stone <jistone@redhat.com> - 1.31.0-8
+- Update to 1.31.0 -- Rust 2018!
+- clippy/rls/rustfmt are no longer -preview
 
 * Thu Nov 08 2018 Josh Stone <jistone@redhat.com> - 1.30.1-7
 - Update to 1.30.1.

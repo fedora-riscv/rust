@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.30.0
-%global bootstrap_cargo 1.30.0
+%global bootstrap_rust 1.31.1
+%global bootstrap_cargo 1.31.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-10-25
+%global bootstrap_date 2018-12-20
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -55,15 +55,15 @@
 # Some sub-packages are versioned independently of the rust compiler and runtime itself.
 # Also beware that if any of these are not changed in a version bump, then the release
 # number should still increase, not be reset to 1!
-%global rustc_version 1.31.1
-%global cargo_version 1.31.0
+%global rustc_version 1.32.0
+%global cargo_version 1.32.0
 %global rustfmt_version 1.0.0
 %global rls_version 1.31.7
 %global clippy_version 0.0.212
 
 Name:           rust
 Version:        %{rustc_version}
-Release:        9%{?dist}
+Release:        0.1.beta.12%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -77,8 +77,8 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-lang/rust/pull/56394
-Patch1:         0001-Deal-with-EINTR-in-net-timeout-tests.patch
+# https://github.com/rust-dev-tools/rls-analysis/pull/160
+Patch1:         0001-Try-to-get-the-target-triple-from-rustc-itself.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -345,7 +345,6 @@ A tool for formatting Rust code according to style guidelines.
 %package -n rls
 Summary:        Rust Language Server for IDE integration
 Version:        %{rls_version}
-Provides:       rls = %{rls_version}
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 0.27
 %endif
@@ -370,7 +369,6 @@ reformatting, and code completion, and enables renaming and refactorings.
 %package -n clippy
 Summary:        Lints to catch common mistakes and improve your Rust code
 Version:        %{clippy_version}
-Provides:       clippy = %{clippy_version}
 Requires:       cargo
 # /usr/bin/clippy-driver is dynamically linked against internal rustc libs
 Requires:       %{name}%{?_isa} = %{rustc_version}-%{release}
@@ -414,14 +412,13 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
+pushd vendor/rls-analysis
 %patch1 -p1
+popd
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %endif
-
-# We're disabling jemalloc, but rust-src still wants it.
-# rm -rf src/jemalloc/
 
 %if %without bundled_llvm
 rm -rf src/llvm/
@@ -455,7 +452,7 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 # The configure macro will modify some autoconf-related files, which upsets
 # cargo when it tries to verify checksums in those files.  If we just truncate
 # that file list, cargo won't have anything to complain about.
-find src/vendor -name .cargo-checksum.json \
+find vendor -name .cargo-checksum.json \
   -exec sed -i.uncheck -e 's/"files":{[^}]*}/"files":{ }/' '{}' '+'
 
 
@@ -501,7 +498,6 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
     %{!?llvm_has_filecheck: --disable-codegen-tests} \
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
-  --disable-jemalloc \
   --disable-rpath \
   %{enable_debuginfo} \
   --enable-extended \
@@ -699,6 +695,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Wed Jan 09 2019 Josh Stone <jistone@redhat.com> - 1.32.0-0.1.beta.12
+- beta test
+
 * Mon Jan 07 2019 Josh Stone <jistone@redhat.com> - 1.31.1-9
 - Update to 1.31.1 for RLS fixes.
 

@@ -52,17 +52,8 @@
 %bcond_with lldb
 %endif
 
-# Some sub-packages are versioned independently of the rust compiler and runtime itself.
-# Also beware that if any of these are not changed in a version bump, then the release
-# number should still increase, not be reset to 1!
-%global rustc_version 1.32.0
-%global cargo_version 1.32.0
-%global rustfmt_version 1.0.0
-%global rls_version 1.31.7
-%global clippy_version 0.0.212
-
 Name:           rust
-Version:        %{rustc_version}
+Version:        1.32.0
 Release:        0.1.beta.12%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -71,7 +62,7 @@ URL:            https://www.rust-lang.org
 ExclusiveArch:  %{rust_arches}
 
 %if "%{channel}" == "stable"
-%global rustc_package rustc-%{rustc_version}-src
+%global rustc_package rustc-%{version}-src
 %else
 %global rustc_package rustc-%{channel}-src
 %endif
@@ -124,10 +115,10 @@ Provides:       bundled(%{name}-bootstrap) = %{bootstrap_rust}
 %else
 BuildRequires:  cargo >= %{bootstrap_cargo}
 %if 0%{?fedora} >= 27
-BuildRequires:  (%{name} >= %{bootstrap_rust} with %{name} <= %{rustc_version})
+BuildRequires:  (%{name} >= %{bootstrap_rust} with %{name} <= %{version})
 %else
 BuildRequires:  %{name} >= %{bootstrap_rust}
-BuildConflicts: %{name} > %{rustc_version}
+BuildConflicts: %{name} > %{version}
 %endif
 %global local_rust_root %{_prefix}
 %endif
@@ -190,11 +181,11 @@ Provides:       bundled(libbacktrace) = 8.1.0
 Provides:       bundled(miniz) = 1.16~beta+r1
 
 # Virtual provides for folks who attempt "dnf install rustc"
-Provides:       rustc = %{rustc_version}-%{release}
-Provides:       rustc%{?_isa} = %{rustc_version}-%{release}
+Provides:       rustc = %{version}-%{release}
+Provides:       rustc%{?_isa} = %{version}-%{release}
 
 # Always require our exact standard library
-Requires:       %{name}-std-static%{?_isa} = %{rustc_version}-%{release}
+Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
 
 # The C compiler is needed at runtime just for linking.  Someday rustc might
 # invoke the linker directly, and then we'll only need binutils.
@@ -260,7 +251,7 @@ This package includes the common functionality for %{name}-gdb and %{name}-lldb.
 Summary:        GDB pretty printers for Rust
 BuildArch:      noarch
 Requires:       gdb
-Requires:       %{name}-debugger-common = %{rustc_version}-%{release}
+Requires:       %{name}-debugger-common = %{version}-%{release}
 
 %description gdb
 This package includes the rust-gdb script, which allows easier debugging of Rust
@@ -277,7 +268,7 @@ Summary:        LLDB pretty printers for Rust
 
 Requires:       lldb
 Requires:       python2-lldb
-Requires:       %{name}-debugger-common = %{rustc_version}-%{release}
+Requires:       %{name}-debugger-common = %{version}-%{release}
 
 %description lldb
 This package includes the rust-lldb script, which allows easier debugging of Rust
@@ -300,7 +291,6 @@ its standard library.
 
 %package -n cargo
 Summary:        Rust's package manager and build tool
-Version:        %{cargo_version}
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 0.27
 %endif
@@ -319,11 +309,10 @@ and ensure that you'll always get a repeatable build.
 
 %package -n cargo-doc
 Summary:        Documentation for Cargo
-Version:        %{cargo_version}
 BuildArch:      noarch
 # Cargo no longer builds its own documentation
 # https://github.com/rust-lang/cargo/pull/4904
-Requires:       rust-doc = %{rustc_version}-%{release}
+Requires:       rust-doc = %{version}-%{release}
 
 %description -n cargo-doc
 This package includes HTML documentation for Cargo.
@@ -331,12 +320,11 @@ This package includes HTML documentation for Cargo.
 
 %package -n rustfmt
 Summary:        Tool to find and fix Rust formatting issues
-Version:        %{rustfmt_version}
 Requires:       cargo
 
 # The component/package was rustfmt-preview until Rust 1.31.
 Obsoletes:      rustfmt-preview < 1.0.0
-Provides:       rustfmt-preview = %{rustfmt_version}-%{release}
+Provides:       rustfmt-preview = %{version}-%{release}
 
 %description -n rustfmt
 A tool for formatting Rust code according to style guidelines.
@@ -344,7 +332,6 @@ A tool for formatting Rust code according to style guidelines.
 
 %package -n rls
 Summary:        Rust Language Server for IDE integration
-Version:        %{rls_version}
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 0.27
 %endif
@@ -353,11 +340,11 @@ Provides:       bundled(libssh2) = 1.8.1~dev
 %endif
 Requires:       rust-analysis
 # /usr/bin/rls is dynamically linked against internal rustc libs
-Requires:       %{name}%{?_isa} = %{rustc_version}-%{release}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
 
 # The component/package was rls-preview until Rust 1.31.
 Obsoletes:      rls-preview < 1.31.6
-Provides:       rls-preview = %{rls_version}-%{release}
+Provides:       rls-preview = %{version}-%{release}
 
 %description -n rls
 The Rust Language Server provides a server that runs in the background,
@@ -368,14 +355,13 @@ reformatting, and code completion, and enables renaming and refactorings.
 
 %package -n clippy
 Summary:        Lints to catch common mistakes and improve your Rust code
-Version:        %{clippy_version}
 Requires:       cargo
 # /usr/bin/clippy-driver is dynamically linked against internal rustc libs
-Requires:       %{name}%{?_isa} = %{rustc_version}-%{release}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
 
 # The component/package was clippy-preview until Rust 1.31.
 Obsoletes:      clippy-preview <= 0.0.212
-Provides:       clippy-preview = %{clippy_version}-%{release}
+Provides:       clippy-preview = %{version}-%{release}
 
 %description -n clippy
 A collection of lints to catch common mistakes and improve your Rust code.
@@ -392,7 +378,7 @@ useful as a reference for code completion tools in various editors.
 
 %package analysis
 Summary:        Compiler analysis data for the Rust standard library
-Requires:       rust-std-static%{?_isa} = %{rustc_version}-%{release}
+Requires:       rust-std-static%{?_isa} = %{version}-%{release}
 
 %description analysis
 This package contains analysis data files produced with rustc's -Zsave-analysis

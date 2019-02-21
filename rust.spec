@@ -54,7 +54,7 @@
 
 Name:           rust
 Version:        1.32.0
-Release:        0.1.beta.12%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -70,6 +70,9 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
 # https://github.com/rust-dev-tools/rls-analysis/pull/160
 Patch1:         0001-Try-to-get-the-target-triple-from-rustc-itself.patch
+
+# https://github.com/rust-lang/rust/pull/57453
+Patch2:         0001-lldb_batchmode.py-try-import-_thread-for-Python-3.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -401,6 +404,7 @@ test -f '%{local_rust_root}/bin/rustc'
 pushd vendor/rls-analysis
 %patch1 -p1
 popd
+%patch2 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -681,8 +685,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Wed Jan 09 2019 Josh Stone <jistone@redhat.com> - 1.32.0-0.1.beta.12
-- beta test
+* Sat Feb 02 2019 Fedora Release Engineering <releng@fedoraproject.org> - 1.32.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild
+
+* Thu Jan 17 2019 Josh Stone <jistone@redhat.com> - 1.32.0-1
+- Update to 1.32.0.
 
 * Mon Jan 07 2019 Josh Stone <jistone@redhat.com> - 1.31.1-9
 - Update to 1.31.1 for RLS fixes.

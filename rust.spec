@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.31.1
-%global bootstrap_cargo 1.31.0
+%global bootstrap_rust 1.32.0
+%global bootstrap_cargo 1.32.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2018-12-20
+%global bootstrap_date 2019-01-17
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -53,8 +53,8 @@
 %endif
 
 Name:           rust
-Version:        1.32.0
-Release:        2%{?dist}
+Version:        1.33.0
+Release:        0.1.beta.9%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -71,8 +71,12 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # https://github.com/rust-dev-tools/rls-analysis/pull/160
 Patch1:         0001-Try-to-get-the-target-triple-from-rustc-itself.patch
 
-# https://github.com/rust-lang/rust/pull/57453
-Patch2:         0001-lldb_batchmode.py-try-import-_thread-for-Python-3.patch
+# https://github.com/rust-lang/rust/pull/57647
+Patch2:         0001-rust-gdb-relax-the-GDB-version-regex.patch
+
+# Revert https://github.com/rust-lang/rust/pull/57840
+# We do have the necessary fix in our LLVM 7.
+Patch3:         rust-pr57840-llvm7-debuginfo-variants.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -166,7 +170,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 5.0
+BuildRequires:  %{llvm}-devel >= 6.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -181,7 +185,7 @@ BuildRequires:  gdb
 
 # TODO: work on unbundling these!
 Provides:       bundled(libbacktrace) = 8.1.0
-Provides:       bundled(miniz) = 1.16~beta+r1
+Provides:       bundled(miniz) = 2.0.7
 
 # Virtual provides for folks who attempt "dnf install rustc"
 Provides:       rustc = %{version}-%{release}
@@ -405,6 +409,7 @@ pushd vendor/rls-analysis
 %patch1 -p1
 popd
 %patch2 -p1
+%patch3 -p1 -R
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -422,9 +427,8 @@ rm -rf src/tools/clang
 rm -rf src/tools/lld
 rm -rf src/tools/lldb
 
-# extract bundled licenses for packaging
-sed -e '/*\//q' src/libbacktrace/backtrace.h \
-  >src/libbacktrace/LICENSE-libbacktrace
+# rename bundled license for packaging
+cp -a vendor/backtrace-sys/src/libbacktrace/LICENSE{,-libbacktrace}
 
 %if %{with bundled_llvm} && 0%{?epel}
 mkdir -p cmake-bin
@@ -586,7 +590,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %files
 %license COPYRIGHT LICENSE-APACHE LICENSE-MIT
-%license src/libbacktrace/LICENSE-libbacktrace
+%license vendor/backtrace-sys/src/libbacktrace/LICENSE-libbacktrace
 %doc README.md
 %{_bindir}/rustc
 %{_bindir}/rustdoc
@@ -598,6 +602,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
 %{rustlibdir}/%{rust_triple}/codegen-backends/
+%exclude %{_bindir}/{cargo-,}miri
 
 
 %files std-static
@@ -685,6 +690,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Feb 21 2019 Josh Stone <jistone@redhat.com> - 1.33.0-0.1.beta.9
+- beta test
+
 * Sat Feb 02 2019 Fedora Release Engineering <releng@fedoraproject.org> - 1.32.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild
 

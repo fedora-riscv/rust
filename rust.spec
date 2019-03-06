@@ -54,7 +54,7 @@
 
 Name:           rust
 Version:        1.33.0
-Release:        0.1.beta.9%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -77,6 +77,9 @@ Patch2:         0001-rust-gdb-relax-the-GDB-version-regex.patch
 # Revert https://github.com/rust-lang/rust/pull/57840
 # We do have the necessary fix in our LLVM 7.
 Patch3:         rust-pr57840-llvm7-debuginfo-variants.patch
+
+# https://github.com/rust-lang/rust/issues/58845
+Patch4:         0001-Backport-deprecation-fixes-from-commit-b7f030e.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -161,8 +164,9 @@ BuildRequires:  cmake3 >= 3.4.3
 Provides:       bundled(llvm) = 8.0.0~svn
 %else
 BuildRequires:  cmake >= 2.8.11
-%if 0%{?epel}
-%global llvm llvm5.0
+%if 0%{?epel} || 0%{?fedora} >= 30
+# TODO: for f30+, we'll be ready for LLVM8 in Rust 1.34
+%global llvm llvm7.0
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -222,7 +226,7 @@ Requires:       /usr/bin/cc
 %global rustflags -Clink-arg=-Wl,-z,relro,-z,now
 
 %if %{without bundled_llvm}
-%if 0%{?fedora} || 0%{?rhel} > 7 || 0%{?scl:1}
+%if "%{llvm_root}" == "%{_prefix}" || 0%{?scl:1}
 %global llvm_has_filecheck 1
 %endif
 %if "%{llvm_root}" != "%{_prefix}"
@@ -410,6 +414,7 @@ pushd vendor/rls-analysis
 popd
 %patch2 -p1
 %patch3 -p1 -R
+%patch4 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -471,7 +476,7 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %global common_libdir %{_prefix}/lib
 %global rustlibdir %{common_libdir}/rustlib
 
-%ifarch %{arm} %{ix86}
+%ifarch %{arm} %{ix86} s390x
 # full debuginfo is exhausting memory; just do libstd for now
 # https://github.com/rust-lang/rust/issues/45854
 %if (0%{?fedora} && 0%{?fedora} < 27) || (0%{?rhel} && 0%{?rhel} <= 7)
@@ -602,7 +607,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
 %{rustlibdir}/%{rust_triple}/codegen-backends/
-%exclude %{_bindir}/{cargo-,}miri
+%exclude %{_bindir}/*miri
 
 
 %files std-static
@@ -690,8 +695,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Thu Feb 21 2019 Josh Stone <jistone@redhat.com> - 1.33.0-0.1.beta.9
-- beta test
+* Fri Mar 01 2019 Josh Stone <jistone@redhat.com> - 1.33.0-2
+- Fix deprecations for self-rebuild
+
+* Thu Feb 28 2019 Josh Stone <jistone@redhat.com> - 1.33.0-1
+- Update to 1.33.0.
 
 * Sat Feb 02 2019 Fedora Release Engineering <releng@fedoraproject.org> - 1.32.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_30_Mass_Rebuild

@@ -12,7 +12,7 @@
 %global bootstrap_rust 1.33.0
 %global bootstrap_cargo 1.33.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2019-02-25
+%global bootstrap_date 2019-02-28
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -54,7 +54,7 @@
 
 Name:           rust
 Version:        1.34.0
-Release:        0.1.beta.3%{?dist}
+Release:        0.1.beta.5%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -683,7 +683,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Mon Mar 18 2019 Josh Stone <jistone@redhat.com> - 1.34.0-0.1.beta.3
+* Wed Mar 20 2019 Josh Stone <jistone@redhat.com> - 1.34.0-0.1.beta.5
 - beta test
 
 * Fri Mar 01 2019 Josh Stone <jistone@redhat.com> - 1.33.0-2

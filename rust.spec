@@ -219,10 +219,6 @@ Requires:       /usr/bin/cc
 %if "%{llvm_root}" == "%{_prefix}" || 0%{?scl:1}
 %global llvm_has_filecheck 1
 %endif
-%if "%{llvm_root}" != "%{_prefix}"
-# https://github.com/rust-lang/rust/issues/40717
-%global library_path $(%{llvm_root}/bin/llvm-config --libdir)
-%endif
 %endif
 
 %description
@@ -453,7 +449,6 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %endif
 
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # We're going to override --libdir when configuring to get rustlib into a
@@ -495,7 +490,6 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 
 %install
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
@@ -564,7 +558,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %check
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # The results are not stable on koji, so mask errors and just log it.

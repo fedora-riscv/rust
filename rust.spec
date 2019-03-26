@@ -402,16 +402,11 @@ sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %endif
 
 %if %without bundled_llvm
-rm -rf src/llvm/
+rm -rf src/llvm-project/
 %endif
 
 # We never enable emscripten.
 rm -rf src/llvm-emscripten/
-
-# We never enable other LLVM tools.
-rm -rf src/tools/clang
-rm -rf src/tools/lld
-rm -rf src/tools/lldb
 
 # rename bundled license for packaging
 cp -a vendor/backtrace-sys/src/libbacktrace/LICENSE{,-libbacktrace}

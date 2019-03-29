@@ -54,7 +54,7 @@
 
 Name:           rust
 Version:        1.34.0
-Release:        0.1.beta.5%{?dist}
+Release:        0.1.beta.6%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -671,7 +671,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Wed Mar 20 2019 Josh Stone <jistone@redhat.com> - 1.34.0-0.1.beta.5
+* Fri Mar 29 2019 Josh Stone <jistone@redhat.com> - 1.34.0-0.1.beta.6
 - beta test
 
 * Fri Mar 01 2019 Josh Stone <jistone@redhat.com> - 1.33.0-2

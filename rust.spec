@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.32.0
-%global bootstrap_cargo 1.32.0
+%global bootstrap_rust 1.33.0
+%global bootstrap_cargo 1.33.0
 %global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2019-01-17
+%global bootstrap_date 2019-02-28
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -53,7 +53,7 @@
 %endif
 
 Name:           rust
-Version:        1.33.0
+Version:        1.34.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -68,15 +68,9 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-dev-tools/rls-analysis/pull/160
-Patch1:         0001-Try-to-get-the-target-triple-from-rustc-itself.patch
-
-# https://github.com/rust-lang/rust/pull/57647
-Patch2:         0001-rust-gdb-relax-the-GDB-version-regex.patch
-
 # Revert https://github.com/rust-lang/rust/pull/57840
 # We do have the necessary fix in our LLVM 7.
-Patch3:         rust-pr57840-llvm7-debuginfo-variants.patch
+Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -161,8 +155,7 @@ BuildRequires:  cmake3 >= 3.4.3
 Provides:       bundled(llvm) = 8.0.0~svn
 %else
 BuildRequires:  cmake >= 2.8.11
-%if 0%{?epel} || 0%{?fedora} >= 30
-# TODO: for f30+, we'll be ready for LLVM8 in Rust 1.34
+%if 0%{?epel}
 %global llvm llvm7.0
 %endif
 %if %defined llvm
@@ -225,10 +218,6 @@ Requires:       /usr/bin/cc
 %if %{without bundled_llvm}
 %if "%{llvm_root}" == "%{_prefix}" || 0%{?scl:1}
 %global llvm_has_filecheck 1
-%endif
-%if "%{llvm_root}" != "%{_prefix}"
-# https://github.com/rust-lang/rust/issues/40717
-%global library_path $(%{llvm_root}/bin/llvm-config --libdir)
 %endif
 %endif
 
@@ -406,27 +395,18 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-pushd vendor/rls-analysis
-%patch1 -p1
-popd
-%patch2 -p1
-%patch3 -p1 -R
+%patch1 -p1 -R
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %endif
 
 %if %without bundled_llvm
-rm -rf src/llvm/
+rm -rf src/llvm-project/
 %endif
 
 # We never enable emscripten.
 rm -rf src/llvm-emscripten/
-
-# We never enable other LLVM tools.
-rm -rf src/tools/clang
-rm -rf src/tools/lld
-rm -rf src/tools/lldb
 
 # rename bundled license for packaging
 cp -a vendor/backtrace-sys/src/libbacktrace/LICENSE{,-libbacktrace}
@@ -464,7 +444,6 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %endif
 
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # We're going to override --libdir when configuring to get rustlib into a
@@ -506,7 +485,6 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 
 %install
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
@@ -575,7 +553,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %check
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # The results are not stable on koji, so mask errors and just log it.
@@ -603,7 +580,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
 %{rustlibdir}/%{rust_triple}/codegen-backends/
-%exclude %{_bindir}/{cargo-,}miri
+%exclude %{_bindir}/*miri
 
 
 %files std-static
@@ -622,6 +599,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %files gdb
 %{_bindir}/rust-gdb
 %{rustlibdir}/etc/gdb_*.py*
+%exclude %{_bindir}/rust-gdbgui
 
 
 %if %with lldb
@@ -638,7 +616,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %{_docdir}/%{name}/html/*/
 %{_docdir}/%{name}/html/*.html
 %{_docdir}/%{name}/html/*.css
+%{_docdir}/%{name}/html/*.ico
 %{_docdir}/%{name}/html/*.js
+%{_docdir}/%{name}/html/*.png
 %{_docdir}/%{name}/html/*.svg
 %{_docdir}/%{name}/html/*.woff
 %license %{_docdir}/%{name}/html/*.txt
@@ -691,6 +671,12 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Apr 11 2019 Josh Stone <jistone@redhat.com> - 1.34.0-1
+- Update to 1.34.0.
+
+* Fri Mar 01 2019 Josh Stone <jistone@redhat.com> - 1.33.0-2
+- Fix deprecations for self-rebuild
+
 * Thu Feb 28 2019 Josh Stone <jistone@redhat.com> - 1.33.0-1
 - Update to 1.33.0.
 

@@ -53,7 +53,7 @@
 %endif
 
 Name:           rust
-Version:        1.34.0
+Version:        1.34.1
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -71,6 +71,9 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # Revert https://github.com/rust-lang/rust/pull/57840
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
+
+# https://github.com/rust-lang/rust/pull/60313
+Patch2:         0001-Limit-internalization-in-LLVM-8-ThinLTO.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -396,6 +399,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1 -R
+%patch2 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -671,6 +675,10 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Apr 25 2019 Josh Stone <jistone@redhat.com> - 1.34.1-1
+- Update to 1.34.1.
+- Add a ThinLTO fix for rhbz1701339.
+
 * Thu Apr 11 2019 Josh Stone <jistone@redhat.com> - 1.34.0-1
 - Update to 1.34.0.
 

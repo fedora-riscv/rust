@@ -53,7 +53,7 @@
 %endif
 
 Name:           rust
-Version:        1.34.1
+Version:        1.34.2
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -481,6 +481,7 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
   --enable-extended \
   --enable-vendor \
   --enable-verbose-tests \
+  --set rust.codegen-units-std=1 \
   --release-channel=%{channel}
 
 %{python} ./x.py build
@@ -675,6 +676,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Tue May 14 2019 Josh Stone <jistone@redhat.com> - 1.34.2-1
+- Update to 1.34.2 -- fixes CVE-2019-12083.
+
 * Thu Apr 25 2019 Josh Stone <jistone@redhat.com> - 1.34.1-1
 - Update to 1.34.1.
 - Add a ThinLTO fix for rhbz1701339.

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.33.0
-%global bootstrap_cargo 1.33.0
-%global bootstrap_channel %{bootstrap_rust}
-%global bootstrap_date 2019-02-28
+%global bootstrap_rust 1.34.0
+%global bootstrap_cargo 1.34.0
+%global bootstrap_channel 1.34.2
+%global bootstrap_date 2019-05-14
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -40,20 +40,15 @@
 %bcond_with bundled_libssh2
 %endif
 
-# LLDB only works on some architectures
-%ifarch %{arm} aarch64 %{ix86} x86_64
 # LLDB isn't available everywhere...
 %if !0%{?rhel}
 %bcond_without lldb
 %else
 %bcond_with lldb
 %endif
-%else
-%bcond_with lldb
-%endif
 
 Name:           rust
-Version:        1.34.2
+Version:        1.35.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -74,6 +69,9 @@ Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
 # https://github.com/rust-lang/rust/pull/60313
 Patch2:         0001-Limit-internalization-in-LLVM-8-ThinLTO.patch
+
+# https://github.com/rust-lang/rust/pull/61085
+Patch3:         rust-pr61085-fix-ICE-with-incorrect-turbofish.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -262,10 +260,7 @@ programs.
 
 %package lldb
 Summary:        LLDB pretty printers for Rust
-
-# It could be noarch, but lldb has limited availability
-#BuildArch:      noarch
-
+BuildArch:      noarch
 Requires:       lldb
 Requires:       python2-lldb
 Requires:       %{name}-debugger-common = %{version}-%{release}
@@ -400,6 +395,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1 -R
 %patch2 -p1
+%patch3 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -469,6 +465,13 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %define enable_debuginfo --enable-debuginfo --disable-debuginfo-only-std --enable-debuginfo-tools --disable-debuginfo-lines
 %endif
 
+# We want the best optimization for std, but it caused problems for rpm-ostree
+# on ppc64le to have all of the compiler_builtins in a single object:
+# https://bugzilla.redhat.com/show_bug.cgi?id=1713090
+%ifnarch %{power64}
+%define codegen_units_std --set rust.codegen-units-std=1
+%endif
+
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
@@ -481,7 +484,7 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
   --enable-extended \
   --enable-vendor \
   --enable-verbose-tests \
-  --set rust.codegen-units-std=1 \
+  %{?codegen_units_std} \
   --release-channel=%{channel}
 
 %{python} ./x.py build
@@ -676,6 +679,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu May 23 2019 Josh Stone <jistone@redhat.com> - 1.35.0-1
+- Update to 1.35.0.
+
 * Tue May 14 2019 Josh Stone <jistone@redhat.com> - 1.34.2-1
 - Update to 1.34.2 -- fixes CVE-2019-12083.
 

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.34.0
-%global bootstrap_cargo 1.34.0
-%global bootstrap_channel 1.34.2
-%global bootstrap_date 2019-05-14
+%global bootstrap_rust 1.35.0
+%global bootstrap_cargo 1.35.0
+%global bootstrap_channel 1.35.0
+%global bootstrap_date 2019-05-23
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -21,7 +21,7 @@
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 5.0+.
+# is insufficient.  Rust currently requires LLVM 6.0+.
 %if 0%{?rhel} && !0%{?epel}
 %bcond_without bundled_llvm
 %else
@@ -48,7 +48,7 @@
 %endif
 
 Name:           rust
-Version:        1.35.0
+Version:        1.36.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -66,12 +66,6 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # Revert https://github.com/rust-lang/rust/pull/57840
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
-
-# https://github.com/rust-lang/rust/pull/60313
-Patch2:         0001-Limit-internalization-in-LLVM-8-ThinLTO.patch
-
-# https://github.com/rust-lang/rust/pull/61085
-Patch3:         rust-pr61085-fix-ICE-with-incorrect-turbofish.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -153,7 +147,7 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 8.0.0~svn
+Provides:       bundled(llvm) = 8.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
@@ -262,7 +256,11 @@ programs.
 Summary:        LLDB pretty printers for Rust
 BuildArch:      noarch
 Requires:       lldb
+%if 0%{?fedora} >= 31
+Requires:       python3-lldb
+%else
 Requires:       python2-lldb
+%endif
 Requires:       %{name}-debugger-common = %{version}-%{release}
 
 %description lldb
@@ -394,8 +392,6 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1 -R
-%patch2 -p1
-%patch3 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -630,6 +626,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %{_docdir}/%{name}/html/*.svg
 %{_docdir}/%{name}/html/*.woff
 %license %{_docdir}/%{name}/html/*.txt
+%license %{_docdir}/%{name}/html/*.md
 
 
 %files -n cargo
@@ -679,6 +676,12 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Jul 04 2019 Josh Stone <jistone@redhat.com> - 1.36.0-1
+- Update to 1.36.0.
+
+* Wed May 29 2019 Josh Stone <jistone@redhat.com> - 1.35.0-2
+- Fix compiletest for rebuild testing.
+
 * Thu May 23 2019 Josh Stone <jistone@redhat.com> - 1.35.0-1
 - Update to 1.35.0.
 

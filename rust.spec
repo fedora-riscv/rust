@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.35.0
-%global bootstrap_cargo 1.35.0
-%global bootstrap_channel 1.35.0
-%global bootstrap_date 2019-05-23
+%global bootstrap_rust 1.36.0
+%global bootstrap_cargo 1.36.0
+%global bootstrap_channel 1.36.0
+%global bootstrap_date 2019-07-04
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -48,7 +48,7 @@
 %endif
 
 Name:           rust
-Version:        1.36.0
+Version:        1.37.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -285,7 +285,7 @@ its standard library.
 %package -n cargo
 Summary:        Rust's package manager and build tool
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.27
+Provides:       bundled(libgit2) = 0.28.2
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.8.1~dev
@@ -294,6 +294,11 @@ Provides:       bundled(libssh2) = 1.8.1~dev
 BuildRequires:  git
 # Cargo is not much use without Rust
 Requires:       rust
+
+# "cargo vendor" is a builtin command starting with 1.37.  The Obsoletes and
+# Provides are mostly relevant to RHEL, but harmless to have on Fedora/etc. too
+Obsoletes:      cargo-vendor <= 0.1.23
+Provides:       cargo-vendor = %{version}-%{release}
 
 %description -n cargo
 Cargo is a tool that allows Rust projects to declare their various dependencies
@@ -326,7 +331,7 @@ A tool for formatting Rust code according to style guidelines.
 %package -n rls
 Summary:        Rust Language Server for IDE integration
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.27
+Provides:       bundled(libgit2) = 0.28.2
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.8.1~dev
@@ -404,6 +409,24 @@ rm -rf src/llvm-project/
 # We never enable emscripten.
 rm -rf src/llvm-emscripten/
 
+# Remove other unused vendored libraries
+rm -rf vendor/curl-sys/curl/
+rm -rf vendor/jemalloc-sys/jemalloc/
+rm -rf vendor/libz-sys/src/zlib/
+rm -rf vendor/lzma-sys/xz-*/
+rm -rf vendor/openssl-src/openssl/
+
+%if %without bundled_libgit2
+rm -rf vendor/libgit2-sys/libgit2/
+%endif
+
+%if %without bundled_libssh2
+rm -rf vendor/libssh2-sys/libssh2/
+%endif
+
+# This only affects the transient rust-installer, but let it use our dynamic xz-libs
+sed -i.lzma -e '/LZMA_API_STATIC/d' src/bootstrap/tool.rs
+
 # rename bundled license for packaging
 cp -a vendor/backtrace-sys/src/libbacktrace/LICENSE{,-libbacktrace}
 
@@ -453,12 +476,12 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %if (0%{?fedora} && 0%{?fedora} < 27) || (0%{?rhel} && 0%{?rhel} <= 7)
 # Older rpmbuild didn't work with partial debuginfo coverage.
 %global debug_package %{nil}
-%define enable_debuginfo --disable-debuginfo --disable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
+%define enable_debuginfo --debuginfo-level=0
 %else
-%define enable_debuginfo --enable-debuginfo --enable-debuginfo-only-std --disable-debuginfo-tools --disable-debuginfo-lines
+%define enable_debuginfo --debuginfo-level=0 --debuginfo-level-std=2
 %endif
 %else
-%define enable_debuginfo --enable-debuginfo --disable-debuginfo-only-std --enable-debuginfo-tools --disable-debuginfo-lines
+%define enable_debuginfo --debuginfo-level=2
 %endif
 
 # We want the best optimization for std, but it caused problems for rpm-ostree
@@ -471,6 +494,7 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
+  --python=%{python} \
   --local-rust-root=%{local_rust_root} \
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
     %{!?llvm_has_filecheck: --disable-codegen-tests} \
@@ -676,6 +700,12 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Aug 15 2019 Josh Stone <jistone@redhat.com> - 1.37.0-1
+- Update to 1.37.0.
+
+* Fri Jul 26 2019 Fedora Release Engineering <releng@fedoraproject.org> - 1.36.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild
+
 * Thu Jul 04 2019 Josh Stone <jistone@redhat.com> - 1.36.0-1
 - Update to 1.36.0.
 

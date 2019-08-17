@@ -40,6 +40,13 @@
 %bcond_with bundled_libssh2
 %endif
 
+%if 0%{?rhel} && 0%{?rhel} <= 7
+%bcond_with curl_http2
+%else
+%bcond_without curl_http2
+%endif
+
+
 # LLDB isn't available everywhere...
 %if !0%{?rhel}
 %bcond_without lldb
@@ -66,6 +73,10 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # Revert https://github.com/rust-lang/rust/pull/57840
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
+
+# libcurl on EL7 doesn't have http2, but since cargo requests it, curl-sys
+# will try to build it statically -- instead we turn off the feature.
+Patch10:        rustc-1.37.0-disable-http2.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -398,6 +409,11 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1 -R
 
+%if %without curl_http2
+%patch10 -p1
+rm -rf vendor/libnghttp2-sys/
+%endif
+
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %endif
@@ -702,6 +718,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %changelog
 * Thu Aug 15 2019 Josh Stone <jistone@redhat.com> - 1.37.0-1
 - Update to 1.37.0.
+- Disable HTTP/2 support, lacking in system libcurl.
 
 * Fri Jul 26 2019 Fedora Release Engineering <releng@fedoraproject.org> - 1.36.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild

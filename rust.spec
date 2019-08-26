@@ -49,7 +49,7 @@
 
 Name:           rust
 Version:        1.37.0
-Release:        0.1.beta.9%{?dist}
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -700,8 +700,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Mon Aug 12 2019 Josh Stone <jistone@redhat.com> - 1.37.0-0.1.beta.9
-- beta test
+* Thu Aug 15 2019 Josh Stone <jistone@redhat.com> - 1.37.0-1
+- Update to 1.37.0.
+
+* Fri Jul 26 2019 Fedora Release Engineering <releng@fedoraproject.org> - 1.36.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_31_Mass_Rebuild
 
 * Thu Jul 04 2019 Josh Stone <jistone@redhat.com> - 1.36.0-1
 - Update to 1.36.0.

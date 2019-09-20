@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.36.0
-%global bootstrap_cargo 1.36.0
-%global bootstrap_channel 1.36.0
-%global bootstrap_date 2019-07-04
+%global bootstrap_rust 1.37.0
+%global bootstrap_cargo 1.37.0
+%global bootstrap_channel 1.37.0
+%global bootstrap_date 2019-08-15
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -48,8 +48,8 @@
 %endif
 
 Name:           rust
-Version:        1.37.0
-Release:        1%{?dist}
+Version:        1.38.0
+Release:        0.1.beta.6%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -449,6 +449,10 @@ sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
 find vendor -name .cargo-checksum.json \
   -exec sed -i.uncheck -e 's/"files":{[^}]*}/"files":{ }/' '{}' '+'
 
+# Sometimes Rust sources start with #![...] attributes, and "smart" editors think
+# it's a shebang and make them executable. Then brp-mangle-shebangs gets upset...
+find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
+
 
 %build
 
@@ -700,6 +704,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Fri Sep 20 2019 Josh Stone <jistone@redhat.com> - 1.38.0-0.1.beta.6
+- beta test
+
 * Thu Aug 15 2019 Josh Stone <jistone@redhat.com> - 1.37.0-1
 - Update to 1.37.0.
 

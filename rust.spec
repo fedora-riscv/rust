@@ -49,7 +49,7 @@
 
 Name:           rust
 Version:        1.38.0
-Release:        0.1.beta.6%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -66,6 +66,13 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # Revert https://github.com/rust-lang/rust/pull/57840
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
+
+# Mask a warning-as-error when rebuilding 1.38 with 1.38
+Patch2:         rustc-1.38.0-rebuild-bootstrap.patch
+
+# Reduce the size of rust-std
+# https://github.com/rust-lang/rust/pull/64823
+Patch3:         0001-WIP-minimize-the-rust-std-component.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -397,6 +404,8 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1 -R
+%patch2 -p1
+%patch3 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -538,9 +547,11 @@ find %{buildroot}%{_libdir} -maxdepth 1 -type f -name '*.so' \
 (cd "%{buildroot}%{rustlibdir}/%{rust_triple}/lib" &&
  find ../../../../%{_lib} -maxdepth 1 -name '*.so' |
  while read lib; do
-   # make sure they're actually identical!
-   cmp "$lib" "${lib##*/}"
-   ln -v -f -s -t . "$lib"
+   if [ -f "${lib##*/}" ]; then
+     # make sure they're actually identical!
+     cmp "$lib" "${lib##*/}"
+     ln -v -f -s -t . "$lib"
+   fi
  done)
 
 # Remove installer artifacts (manifests, uninstall scripts, etc.)
@@ -704,8 +715,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Fri Sep 20 2019 Josh Stone <jistone@redhat.com> - 1.38.0-0.1.beta.6
-- beta test
+* Fri Sep 27 2019 Josh Stone <jistone@redhat.com> - 1.38.0-2
+- Filter the libraries included in rust-std (rhbz1756487)
+
+* Thu Sep 26 2019 Josh Stone <jistone@redhat.com> - 1.38.0-1
+- Update to 1.38.0.
 
 * Thu Aug 15 2019 Josh Stone <jistone@redhat.com> - 1.37.0-1
 - Update to 1.37.0.

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.37.0
-%global bootstrap_cargo 1.37.0
-%global bootstrap_channel 1.37.0
-%global bootstrap_date 2019-08-15
+%global bootstrap_rust 1.38.0
+%global bootstrap_cargo 1.38.0
+%global bootstrap_channel 1.38.0
+%global bootstrap_date 2019-09-26
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -55,8 +55,8 @@
 %endif
 
 Name:           rust
-Version:        1.38.0
-Release:        2%{?dist}
+Version:        1.39.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -74,12 +74,9 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
-# Mask a warning-as-error when rebuilding 1.38 with 1.38
-Patch2:         rustc-1.38.0-rebuild-bootstrap.patch
-
 # Reduce the size of rust-std
-# https://github.com/rust-lang/rust/pull/64823
-Patch3:         0001-WIP-minimize-the-rust-std-component.patch
+# https://github.com/rust-lang/rust/pull/65474
+Patch2:         rust-pr65474-split-rustc-dev.patch
 
 # libcurl on EL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
@@ -416,7 +413,6 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1 -R
 %patch2 -p1
-%patch3 -p1
 
 %if %without curl_http2
 %patch10 -p1
@@ -731,6 +727,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Nov 07 2019 Josh Stone <jistone@redhat.com> - 1.39.0-1
+- Update to 1.39.0.
+
 * Fri Sep 27 2019 Josh Stone <jistone@redhat.com> - 1.38.0-2
 - Filter the libraries included in rust-std (rhbz1756487)
 

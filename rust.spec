@@ -49,7 +49,7 @@
 
 Name:           rust
 Version:        1.39.0
-Release:        0.1.beta.8%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -70,6 +70,14 @@ Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 # Reduce the size of rust-std
 # https://github.com/rust-lang/rust/pull/65474
 Patch2:         rust-pr65474-split-rustc-dev.patch
+
+# Fix conflicting libraries of rustc tools
+# https://github.com/rust-lang/rust/commit/73369f32621f6a844a80a8513ae3ded901e4a406
+Patch3:         0001-Hopefully-fix-rustdoc-build.patch
+
+# Fix the bindir used by rustdoc to find rustc
+# https://github.com/rust-lang/rust/pull/66317
+Patch4:         rust-pr66317-bindir-relative.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -402,6 +410,8 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1 -R
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -711,6 +721,12 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Tue Nov 12 2019 Josh Stone <jistone@redhat.com> - 1.39.0-2
+- Fix a couple build and test issues with rustdoc.
+
+* Thu Nov 07 2019 Josh Stone <jistone@redhat.com> - 1.39.0-1
+- Update to 1.39.0.
+
 * Fri Sep 27 2019 Josh Stone <jistone@redhat.com> - 1.38.0-2
 - Filter the libraries included in rust-std (rhbz1756487)
 

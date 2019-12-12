@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.38.0
-%global bootstrap_cargo 1.38.0
-%global bootstrap_channel 1.38.0
-%global bootstrap_date 2019-09-26
+%global bootstrap_rust 1.39.0
+%global bootstrap_cargo 1.39.0
+%global bootstrap_channel 1.39.0
+%global bootstrap_date 2019-11-07
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -48,8 +48,8 @@
 %endif
 
 Name:           rust
-Version:        1.39.0
-Release:        2%{?dist}
+Version:        1.40.0
+Release:        0.1.beta.5%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -67,17 +67,13 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
-# Reduce the size of rust-std
-# https://github.com/rust-lang/rust/pull/65474
-Patch2:         rust-pr65474-split-rustc-dev.patch
-
-# Fix conflicting libraries of rustc tools
-# https://github.com/rust-lang/rust/commit/73369f32621f6a844a80a8513ae3ded901e4a406
-Patch3:         0001-Hopefully-fix-rustdoc-build.patch
-
 # Fix the bindir used by rustdoc to find rustc
 # https://github.com/rust-lang/rust/pull/66317
-Patch4:         rust-pr66317-bindir-relative.patch
+Patch2:         rust-pr66317-bindir-relative.patch
+
+# ARM loops when C++ tries to catch and rethrow a Rust exception
+# https://github.com/rust-lang/rust/issues/67242
+Patch3:         rust-issue-67242-ignore-arm-foreign-exceptions.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -411,7 +407,6 @@ test -f '%{local_rust_root}/bin/rustc'
 %patch1 -p1 -R
 %patch2 -p1
 %patch3 -p1
-%patch4 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -420,9 +415,6 @@ sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %if %without bundled_llvm
 rm -rf src/llvm-project/
 %endif
-
-# We never enable emscripten.
-rm -rf src/llvm-emscripten/
 
 # Remove other unused vendored libraries
 rm -rf vendor/curl-sys/curl/

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.38.0
-%global bootstrap_cargo 1.38.0
-%global bootstrap_channel 1.38.0
-%global bootstrap_date 2019-09-26
+%global bootstrap_rust 1.39.0
+%global bootstrap_cargo 1.39.0
+%global bootstrap_channel 1.39.0
+%global bootstrap_date 2019-11-07
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -55,7 +55,7 @@
 %endif
 
 Name:           rust
-Version:        1.39.0
+Version:        1.40.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -74,9 +74,13 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
-# Reduce the size of rust-std
-# https://github.com/rust-lang/rust/pull/65474
-Patch2:         rust-pr65474-split-rustc-dev.patch
+# Fix the bindir used by rustdoc to find rustc
+# https://github.com/rust-lang/rust/pull/66317
+Patch2:         rust-pr66317-bindir-relative.patch
+
+# ARM loops when C++ tries to catch and rethrow a Rust exception
+# https://github.com/rust-lang/rust/issues/67242
+Patch3:         rust-issue-67242-ignore-arm-foreign-exceptions.patch
 
 # libcurl on EL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
@@ -413,6 +417,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1 -R
 %patch2 -p1
+%patch3 -p1
 
 %if %without curl_http2
 %patch10 -p1
@@ -426,9 +431,6 @@ sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %if %without bundled_llvm
 rm -rf src/llvm-project/
 %endif
-
-# We never enable emscripten.
-rm -rf src/llvm-emscripten/
 
 # Remove other unused vendored libraries
 rm -rf vendor/curl-sys/curl/
@@ -727,6 +729,12 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Dec 19 2019 Josh Stone <jistone@redhat.com> - 1.40.0-1
+- Update to 1.40.0.
+
+* Tue Nov 12 2019 Josh Stone <jistone@redhat.com> - 1.39.0-2
+- Fix a couple build and test issues with rustdoc.
+
 * Thu Nov 07 2019 Josh Stone <jistone@redhat.com> - 1.39.0-1
 - Update to 1.39.0.
 

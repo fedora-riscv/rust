@@ -1,6 +1,6 @@
---- rustc-1.39.0-src/Cargo.lock.orig	2019-11-04 07:45:21.000000000 -0800
-+++ rustc-1.39.0-src/Cargo.lock	2019-11-07 11:27:09.491588756 -0800
-@@ -745,7 +745,6 @@
+--- rustc-1.40.0-src/Cargo.lock.orig	2019-12-16 07:38:05.000000000 -0800
++++ rustc-1.40.0-src/Cargo.lock	2019-12-19 13:10:26.972016751 -0800
+@@ -769,7 +769,6 @@
  dependencies = [
   "cc",
   "libc",
@@ -8,7 +8,7 @@
   "libz-sys",
   "openssl-sys",
   "pkg-config",
-@@ -1704,16 +1703,6 @@
+@@ -1633,16 +1632,6 @@
  ]
  
  [[package]]
@@ -25,27 +25,25 @@
  name = "libssh2-sys"
  version = "0.2.11"
  source = "registry+https://github.com/rust-lang/crates.io-index"
---- rustc-1.39.0-src/src/tools/cargo/Cargo.toml.orig	2019-11-04 07:45:38.000000000 -0800
-+++ rustc-1.39.0-src/src/tools/cargo/Cargo.toml	2019-11-07 11:26:07.619884857 -0800
-@@ -24,7 +24,7 @@
- crates-io = { path = "crates/crates-io", version = "0.28" }
+--- rustc-1.40.0-src/src/tools/cargo/Cargo.toml.orig	2019-12-16 07:38:26.000000000 -0800
++++ rustc-1.40.0-src/src/tools/cargo/Cargo.toml	2019-12-19 13:06:39.412801760 -0800
+@@ -25,7 +25,7 @@
+ crates-io = { path = "crates/crates-io", version = "0.29" }
  crossbeam-utils = "0.6"
  crypto-hash = "0.3.1"
--curl = { version = "0.4.21", features = ['http2'] }
-+curl = { version = "0.4.21", features = [] }
- curl-sys = "0.4.18"
- env_logger = "0.6.0"
+-curl = { version = "0.4.23", features = ["http2"] }
++curl = { version = "0.4.23", features = [] }
+ curl-sys = "0.4.22"
+ env_logger = "0.7.0"
  pretty_env_logger = { version = "0.3", optional = true }
---- rustc-1.39.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2019-11-04 07:45:38.000000000 -0800
-+++ rustc-1.39.0-src/src/tools/cargo/src/cargo/core/package.rs	2019-11-07 11:30:17.701646098 -0800
-@@ -375,16 +375,8 @@
+--- rustc-1.40.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2019-12-16 07:38:26.000000000 -0800
++++ rustc-1.40.0-src/src/tools/cargo/src/cargo/core/package.rs	2019-12-19 13:08:29.801480559 -0800
+@@ -375,14 +375,8 @@
          // Also note that pipelining is disabled as curl authors have indicated
          // that it's buggy, and we've empirically seen that it's buggy with HTTP
          // proxies.
 -        let mut multi = Multi::new();
--        let multiplexing = config
--            .get::<Option<bool>>("http.multiplexing")?
--            .unwrap_or(true);
+-        let multiplexing = config.http_config()?.multiplexing.unwrap_or(true);
 -        multi
 -            .pipelining(false, multiplexing)
 -            .chain_err(|| "failed to enable multiplexing/pipelining in curl")?;
@@ -57,7 +55,7 @@
  
          Ok(PackageSet {
              packages: package_ids
-@@ -482,7 +474,7 @@
+@@ -480,7 +474,7 @@
  macro_rules! try_old_curl {
      ($e:expr, $msg:expr) => {
          let result = $e;

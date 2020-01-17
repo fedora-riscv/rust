@@ -49,7 +49,7 @@
 
 Name:           rust
 Version:        1.40.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -74,10 +74,12 @@ Patch2:         rust-pr66317-bindir-relative.patch
 # Fix compiletest with newer (local-rebuild) libtest
 # https://github.com/rust-lang/rust/pull/66156/commits/f6832adadb84364ce0c81fa02910b3706f441abc
 Patch3:         0001-Compiletest-bump-to-stage0-bootstrap-libtest.patch
+# https://github.com/rust-lang/rust/pull/68019
+Patch4:         rust-pr68019-in-tree-compiletest.patch
 
 # Fix ARM unwinding for foreign-exceptions
 # https://github.com/rust-lang/rust/pull/67779
-Patch4:         0001-Update-the-barrier-cache-during-ARM-EHABI-unwinding.patch
+Patch5:         0001-Update-the-barrier-cache-during-ARM-EHABI-unwinding.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -412,6 +414,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch5 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -718,6 +721,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Jan 16 2020 Josh Stone <jistone@redhat.com> - 1.40.0-3
+- Build compiletest with in-tree libtest
+
 * Tue Jan 07 2020 Josh Stone <jistone@redhat.com> - 1.40.0-2
 - Fix compiletest with newer (local-rebuild) libtest
 - Fix ARM EHABI unwinding

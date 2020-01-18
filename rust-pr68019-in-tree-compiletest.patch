@@ -1,0 +1,97 @@
+From ed8e55fe8d732d8a87343441db3bfbb974f043df Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Wed, 8 Jan 2020 09:44:45 -0800
+Subject: [PATCH 1/2] Remove obsolete llvm_tools flag
+
+---
+ src/bootstrap/tool.rs | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/src/bootstrap/tool.rs b/src/bootstrap/tool.rs
+index 815498047fd5..f785a0989a36 100644
+--- a/src/bootstrap/tool.rs
++++ b/src/bootstrap/tool.rs
+@@ -293,7 +293,6 @@ fn rustbook_features() -> Vec<String> {
+ macro_rules! bootstrap_tool {
+     ($(
+         $name:ident, $path:expr, $tool_name:expr
+-        $(,llvm_tools = $llvm:expr)*
+         $(,is_external_tool = $external:expr)*
+         $(,features = $features:expr)*
+         ;
+@@ -305,15 +304,6 @@ macro_rules! bootstrap_tool {
+             )+
+         }
+ 
+-        impl Tool {
+-            /// Whether this tool requires LLVM to run
+-            pub fn uses_llvm_tools(&self) -> bool {
+-                match self {
+-                    $(Tool::$name => false $(|| $llvm)*,)+
+-                }
+-            }
+-        }
+-
+         impl<'a> Builder<'a> {
+             pub fn tool_exe(&self, tool: Tool) -> PathBuf {
+                 match tool {
+@@ -381,7 +371,7 @@ bootstrap_tool!(
+     Tidy, "src/tools/tidy", "tidy";
+     Linkchecker, "src/tools/linkchecker", "linkchecker";
+     CargoTest, "src/tools/cargotest", "cargotest";
+-    Compiletest, "src/tools/compiletest", "compiletest", llvm_tools = true;
++    Compiletest, "src/tools/compiletest", "compiletest";
+     BuildManifest, "src/tools/build-manifest", "build-manifest";
+     RemoteTestClient, "src/tools/remote-test-client", "remote-test-client";
+     RustInstaller, "src/tools/rust-installer", "fabricate", is_external_tool = true;
+-- 
+2.24.1
+
+
+From cc4688d66d75e149a0136f701045cbf7ee672725 Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Wed, 8 Jan 2020 10:04:18 -0800
+Subject: [PATCH 2/2] Build compiletest with in-tree libtest
+
+---
+ src/bootstrap/tool.rs | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/src/bootstrap/tool.rs b/src/bootstrap/tool.rs
+index f785a0989a36..73a4dda74e88 100644
+--- a/src/bootstrap/tool.rs
++++ b/src/bootstrap/tool.rs
+@@ -294,6 +294,7 @@ macro_rules! bootstrap_tool {
+     ($(
+         $name:ident, $path:expr, $tool_name:expr
+         $(,is_external_tool = $external:expr)*
++        $(,is_unstable_tool = $unstable:expr)*
+         $(,features = $features:expr)*
+         ;
+     )+) => {
+@@ -344,7 +345,12 @@ macro_rules! bootstrap_tool {
+                     compiler: self.compiler,
+                     target: self.target,
+                     tool: $tool_name,
+-                    mode: Mode::ToolBootstrap,
++                    mode: if false $(|| $unstable)* {
++                        // use in-tree libraries for unstable features
++                        Mode::ToolStd
++                    } else {
++                        Mode::ToolBootstrap
++                    },
+                     path: $path,
+                     is_optional_tool: false,
+                     source_type: if false $(|| $external)* {
+@@ -371,7 +377,7 @@ bootstrap_tool!(
+     Tidy, "src/tools/tidy", "tidy";
+     Linkchecker, "src/tools/linkchecker", "linkchecker";
+     CargoTest, "src/tools/cargotest", "cargotest";
+-    Compiletest, "src/tools/compiletest", "compiletest";
++    Compiletest, "src/tools/compiletest", "compiletest", is_unstable_tool = true;
+     BuildManifest, "src/tools/build-manifest", "build-manifest";
+     RemoteTestClient, "src/tools/remote-test-client", "remote-test-client";
+     RustInstaller, "src/tools/rust-installer", "fabricate", is_external_tool = true;
+-- 
+2.24.1
+

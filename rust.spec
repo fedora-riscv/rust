@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.39.0
-%global bootstrap_cargo 1.39.0
-%global bootstrap_channel 1.39.0
-%global bootstrap_date 2019-11-07
+%global bootstrap_rust 1.40.0
+%global bootstrap_cargo 1.40.0
+%global bootstrap_channel 1.40.0
+%global bootstrap_date 2019-12-16
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -21,7 +21,7 @@
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 6.0+.
+# is insufficient.  Rust currently requires LLVM 7.0+.
 %if 0%{?rhel} && !0%{?epel}
 %bcond_without bundled_llvm
 %else
@@ -48,8 +48,8 @@
 %endif
 
 Name:           rust
-Version:        1.40.0
-Release:        3%{?dist}
+Version:        1.41.0
+Release:        0.beta.3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -67,19 +67,15 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
-# Fix the bindir used by rustdoc to find rustc
-# https://github.com/rust-lang/rust/pull/66317
-Patch2:         rust-pr66317-bindir-relative.patch
-
 # Fix compiletest with newer (local-rebuild) libtest
-# https://github.com/rust-lang/rust/pull/66156/commits/f6832adadb84364ce0c81fa02910b3706f441abc
-Patch3:         0001-Compiletest-bump-to-stage0-bootstrap-libtest.patch
+# https://github.com/rust-lang/rust/commit/241d2e765dc7401e642812e43b75dbc3950f2c98
+Patch2:         0001-Fix-compiletest-fallout-from-stage0-bump.patch
 # https://github.com/rust-lang/rust/pull/68019
-Patch4:         rust-pr68019-in-tree-compiletest.patch
+Patch3:         rust-pr68019-in-tree-compiletest.patch
 
 # Fix ARM unwinding for foreign-exceptions
 # https://github.com/rust-lang/rust/pull/67779
-Patch5:         0001-Update-the-barrier-cache-during-ARM-EHABI-unwinding.patch
+Patch4:         0001-Update-the-barrier-cache-during-ARM-EHABI-unwinding.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -161,7 +157,7 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 8.0.0
+Provides:       bundled(llvm) = 9.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
@@ -173,7 +169,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 6.0
+BuildRequires:  %{llvm}-devel >= 7.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -414,7 +410,6 @@ test -f '%{local_rust_root}/bin/rustc'
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
-%patch5 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -628,7 +623,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %dir %{rustlibdir}/%{rust_triple}
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
-%{rustlibdir}/%{rust_triple}/codegen-backends/
 %exclude %{_bindir}/*miri
 
 

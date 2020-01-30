@@ -29,4 +29,4 @@ index 6deedd0b5ea3..9f63038c3623 100644
 +        || llvm_util::get_major_version() < 8;
  }
  
- // Describes the members of an enum value: An enum is described as a union of
+ // FIXME(eddyb) maybe precompute this? Right now it's computed once

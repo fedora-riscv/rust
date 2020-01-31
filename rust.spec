@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.39.0
-%global bootstrap_cargo 1.39.0
-%global bootstrap_channel 1.39.0
-%global bootstrap_date 2019-11-07
+%global bootstrap_rust 1.40.0
+%global bootstrap_cargo 1.40.0
+%global bootstrap_channel 1.40.0
+%global bootstrap_date 2019-12-19
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -21,7 +21,7 @@
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 6.0+.
+# is insufficient.  Rust currently requires LLVM 7.0+.
 %if 0%{?rhel} && !0%{?epel}
 %bcond_without bundled_llvm
 %else
@@ -55,7 +55,7 @@
 %endif
 
 Name:           rust
-Version:        1.40.0
+Version:        1.41.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -74,13 +74,15 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
-# Fix the bindir used by rustdoc to find rustc
-# https://github.com/rust-lang/rust/pull/66317
-Patch2:         rust-pr66317-bindir-relative.patch
+# Fix compiletest with newer (local-rebuild) libtest
+# https://github.com/rust-lang/rust/commit/241d2e765dc7401e642812e43b75dbc3950f2c98
+Patch2:         0001-Fix-compiletest-fallout-from-stage0-bump.patch
+# https://github.com/rust-lang/rust/pull/68019
+Patch3:         rust-pr68019-in-tree-compiletest.patch
 
-# ARM loops when C++ tries to catch and rethrow a Rust exception
-# https://github.com/rust-lang/rust/issues/67242
-Patch3:         rust-issue-67242-ignore-arm-foreign-exceptions.patch
+# Fix ARM unwinding for foreign-exceptions
+# https://github.com/rust-lang/rust/pull/67779
+Patch4:         0001-Update-the-barrier-cache-during-ARM-EHABI-unwinding.patch
 
 # libcurl on EL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
@@ -166,7 +168,7 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 8.0.0
+Provides:       bundled(llvm) = 9.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
@@ -178,7 +180,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 6.0
+BuildRequires:  %{llvm}-devel >= 7.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -418,6 +420,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %patch1 -p1 -R
 %patch2 -p1
 %patch3 -p1
+%patch4 -p1
 
 %if %without curl_http2
 %patch10 -p1
@@ -636,7 +639,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %dir %{rustlibdir}/%{rust_triple}
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
-%{rustlibdir}/%{rust_triple}/codegen-backends/
 %exclude %{_bindir}/*miri
 
 
@@ -729,6 +731,16 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Jan 30 2020 Josh Stone <jistone@redhat.com> - 1.41.0-1
+- Update to 1.41.0.
+
+* Thu Jan 16 2020 Josh Stone <jistone@redhat.com> - 1.40.0-3
+- Build compiletest with in-tree libtest
+
+* Tue Jan 07 2020 Josh Stone <jistone@redhat.com> - 1.40.0-2
+- Fix compiletest with newer (local-rebuild) libtest
+- Fix ARM EHABI unwinding
+
 * Thu Dec 19 2019 Josh Stone <jistone@redhat.com> - 1.40.0-1
 - Update to 1.40.0.
 

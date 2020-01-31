@@ -1,6 +1,6 @@
---- rustc-1.40.0-src/Cargo.lock.orig	2019-12-16 07:38:05.000000000 -0800
-+++ rustc-1.40.0-src/Cargo.lock	2019-12-19 13:10:26.972016751 -0800
-@@ -769,7 +769,6 @@
+--- rustc-1.41.0-src/Cargo.lock.orig	2020-01-27 07:34:02.000000000 -0800
++++ rustc-1.41.0-src/Cargo.lock	2020-01-31 10:46:54.164921589 -0800
+@@ -823,7 +823,6 @@
  dependencies = [
   "cc",
   "libc",
@@ -8,7 +8,7 @@
   "libz-sys",
   "openssl-sys",
   "pkg-config",
-@@ -1633,16 +1632,6 @@
+@@ -1811,16 +1810,6 @@
  ]
  
  [[package]]
@@ -25,19 +25,19 @@
  name = "libssh2-sys"
  version = "0.2.11"
  source = "registry+https://github.com/rust-lang/crates.io-index"
---- rustc-1.40.0-src/src/tools/cargo/Cargo.toml.orig	2019-12-16 07:38:26.000000000 -0800
-+++ rustc-1.40.0-src/src/tools/cargo/Cargo.toml	2019-12-19 13:06:39.412801760 -0800
+--- rustc-1.41.0-src/src/tools/cargo/Cargo.toml.orig	2020-01-27 07:34:20.000000000 -0800
++++ rustc-1.41.0-src/src/tools/cargo/Cargo.toml	2020-01-31 10:46:54.165921568 -0800
 @@ -25,7 +25,7 @@
- crates-io = { path = "crates/crates-io", version = "0.29" }
- crossbeam-utils = "0.6"
+ crates-io = { path = "crates/crates-io", version = "0.30" }
+ crossbeam-utils = "0.7"
  crypto-hash = "0.3.1"
 -curl = { version = "0.4.23", features = ["http2"] }
 +curl = { version = "0.4.23", features = [] }
  curl-sys = "0.4.22"
  env_logger = "0.7.0"
  pretty_env_logger = { version = "0.3", optional = true }
---- rustc-1.40.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2019-12-16 07:38:26.000000000 -0800
-+++ rustc-1.40.0-src/src/tools/cargo/src/cargo/core/package.rs	2019-12-19 13:08:29.801480559 -0800
+--- rustc-1.41.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2020-01-27 07:34:20.000000000 -0800
++++ rustc-1.41.0-src/src/tools/cargo/src/cargo/core/package.rs	2020-01-31 10:46:54.166921547 -0800
 @@ -375,14 +375,8 @@
          // Also note that pipelining is disabled as curl authors have indicated
          // that it's buggy, and we've empirically seen that it's buggy with HTTP

@@ -48,7 +48,7 @@
 %endif
 
 Name:           rust
-Version:        1.41.0
+Version:        1.41.1
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -162,6 +162,8 @@ Provides:       bundled(llvm) = 9.0.0
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
 %global llvm llvm7.0
+%elif 0%{?fedora} >= 32
+%global llvm llvm9.0
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -223,6 +225,10 @@ Requires:       /usr/bin/cc
 %if %{without bundled_llvm}
 %if "%{llvm_root}" == "%{_prefix}" || 0%{?scl:1}
 %global llvm_has_filecheck 1
+%endif
+%if "%{llvm_root}" != "%{_prefix}"
+# https://github.com/rust-lang/rust/issues/68714
+%global library_path $(%{llvm_root}/bin/llvm-config --libdir)
 %endif
 %endif
 
@@ -477,6 +483,7 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %endif
 
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
+%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # We're going to override --libdir when configuring to get rustlib into a
@@ -527,6 +534,7 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 
 %install
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
+%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
@@ -597,6 +605,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %check
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
+%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # The results are not stable on koji, so mask errors and just log it.
@@ -715,6 +724,12 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Feb 27 2020 Josh Stone <jistone@redhat.com> - 1.41.1-1
+- Update to 1.41.1.
+
+* Thu Feb 20 2020 Josh Stone <jistone@redhat.com> - 1.41.0-2
+- Rebuild with llvm9.0
+
 * Thu Jan 30 2020 Josh Stone <jistone@redhat.com> - 1.41.0-1
 - Update to 1.41.0.
 

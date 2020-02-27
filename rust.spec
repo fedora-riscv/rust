@@ -162,7 +162,8 @@ Provides:       bundled(llvm) = 9.0.0
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
 %global llvm llvm7.0
-%elif 0%{?fedora} >= 32
+%endif
+%if 0%{?fedora} >= 32
 %global llvm llvm9.0
 %endif
 %if %defined llvm

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.40.0
-%global bootstrap_cargo 1.40.0
-%global bootstrap_channel 1.40.0
-%global bootstrap_date 2019-12-19
+%global bootstrap_rust 1.41.0
+%global bootstrap_cargo 1.41.0
+%global bootstrap_channel 1.41.1
+%global bootstrap_date 2020-02-27
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -55,7 +55,7 @@
 %endif
 
 Name:           rust
-Version:        1.41.1
+Version:        1.42.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -74,15 +74,9 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
-# Fix compiletest with newer (local-rebuild) libtest
-# https://github.com/rust-lang/rust/commit/241d2e765dc7401e642812e43b75dbc3950f2c98
-Patch2:         0001-Fix-compiletest-fallout-from-stage0-bump.patch
-# https://github.com/rust-lang/rust/pull/68019
-Patch3:         rust-pr68019-in-tree-compiletest.patch
-
-# Fix ARM unwinding for foreign-exceptions
-# https://github.com/rust-lang/rust/pull/67779
-Patch4:         0001-Update-the-barrier-cache-during-ARM-EHABI-unwinding.patch
+# Fix 1.42 bootstrapping itself
+# https://github.com/rust-lang/rust/issues/69953
+Patch2:         0001-Drop-cfg-bootstrap-code.patch
 
 # libcurl on EL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
@@ -198,7 +192,6 @@ BuildRequires:  gdb
 
 # TODO: work on unbundling these!
 Provides:       bundled(libbacktrace) = 8.1.0
-Provides:       bundled(miniz) = 2.0.7
 
 # Virtual provides for folks who attempt "dnf install rustc"
 Provides:       rustc = %{version}-%{release}
@@ -316,7 +309,7 @@ Summary:        Rust's package manager and build tool
 Provides:       bundled(libgit2) = 0.28.2
 %endif
 %if %with bundled_libssh2
-Provides:       bundled(libssh2) = 1.8.1~dev
+Provides:       bundled(libssh2) = 1.9.0~dev
 %endif
 # For tests:
 BuildRequires:  git
@@ -362,7 +355,7 @@ Summary:        Rust Language Server for IDE integration
 Provides:       bundled(libgit2) = 0.28.2
 %endif
 %if %with bundled_libssh2
-Provides:       bundled(libssh2) = 1.8.1~dev
+Provides:       bundled(libssh2) = 1.9.0~dev
 %endif
 Requires:       rust-analysis
 # /usr/bin/rls is dynamically linked against internal rustc libs
@@ -426,8 +419,6 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1 -R
 %patch2 -p1
-%patch3 -p1
-%patch4 -p1
 
 %if %without curl_http2
 %patch10 -p1
@@ -741,6 +732,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Mar 12 2020 Josh Stone <jistone@redhat.com> - 1.42.0-1
+- Update to 1.42.0.
+
 * Thu Feb 27 2020 Josh Stone <jistone@redhat.com> - 1.41.1-1
 - Update to 1.41.1.
 

@@ -67,6 +67,10 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
+# Fix 1.42 bootstrapping itself
+# https://github.com/rust-lang/rust/issues/69953
+Patch2:         0001-Drop-cfg-bootstrap-code.patch
+
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
   local abi = "gnu"
@@ -403,6 +407,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1 -R
+%patch2 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure

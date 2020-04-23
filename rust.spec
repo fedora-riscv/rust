@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.41.0
-%global bootstrap_cargo 1.41.0
-%global bootstrap_channel 1.41.1
-%global bootstrap_date 2020-02-27
+%global bootstrap_rust 1.42.0
+%global bootstrap_cargo 1.42.0
+%global bootstrap_channel 1.42.0
+%global bootstrap_date 2020-03-12
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -48,7 +48,7 @@
 %endif
 
 Name:           rust
-Version:        1.42.0
+Version:        1.43.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -67,9 +67,15 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # We do have the necessary fix in our LLVM 7.
 Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
 
-# Fix 1.42 bootstrapping itself
-# https://github.com/rust-lang/rust/issues/69953
-Patch2:         0001-Drop-cfg-bootstrap-code.patch
+# Ensure LLVM is in the link path for rustc tools and "fulldeps" tests
+# https://github.com/rust-lang/rust/pull/70123
+# https://github.com/rust-lang/rust/pull/70591
+Patch2:         rust-pr70123-ensure-llvm-is-in-the-link-path.patch
+Patch3:         rust-pr70591-ensure-llvm-is-in-the-link-path.patch
+
+# Prepare for LLVM 10 upgrade
+# https://github.com/rust-lang/rust/pull/70163
+Patch4:         rust-pr70163-prepare-for-llvm-10-upgrade.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -157,9 +163,6 @@ BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
 %global llvm llvm7.0
 %endif
-%if 0%{?fedora} >= 32
-%global llvm llvm9.0
-%endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
 %else
@@ -219,10 +222,6 @@ Requires:       /usr/bin/cc
 %if %{without bundled_llvm}
 %if "%{llvm_root}" == "%{_prefix}" || 0%{?scl:1}
 %global llvm_has_filecheck 1
-%endif
-%if "%{llvm_root}" != "%{_prefix}"
-# https://github.com/rust-lang/rust/issues/68714
-%global library_path $(%{llvm_root}/bin/llvm-config --libdir)
 %endif
 %endif
 
@@ -295,7 +294,7 @@ its standard library.
 %package -n cargo
 Summary:        Rust's package manager and build tool
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.28.2
+Provides:       bundled(libgit2) = 0.99.0
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.9.0~dev
@@ -341,7 +340,7 @@ A tool for formatting Rust code according to style guidelines.
 %package -n rls
 Summary:        Rust Language Server for IDE integration
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.28.2
+Provides:       bundled(libgit2) = 0.99.0
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.9.0~dev
@@ -408,6 +407,8 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1 -R
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -475,7 +476,6 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 %endif
 
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # We're going to override --libdir when configuring to get rustlib into a
@@ -526,7 +526,6 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
 
 %install
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
@@ -597,7 +596,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %check
 %{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?library_path:export LIBRARY_PATH="%{library_path}"}
 %{?rustflags:export RUSTFLAGS="%{rustflags}"}
 
 # The results are not stable on koji, so mask errors and just log it.
@@ -716,6 +714,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Apr 23 2020 Josh Stone <jistone@redhat.com> - 1.43.0-1
+- Update to 1.43.0.
+
 * Thu Mar 12 2020 Josh Stone <jistone@redhat.com> - 1.42.0-1
 - Update to 1.42.0.
 

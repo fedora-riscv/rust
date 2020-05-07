@@ -55,7 +55,7 @@
 %endif
 
 Name:           rust
-Version:        1.43.0
+Version:        1.43.1
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -83,6 +83,9 @@ Patch3:         rust-pr70591-ensure-llvm-is-in-the-link-path.patch
 # Prepare for LLVM 10 upgrade
 # https://github.com/rust-lang/rust/pull/70163
 Patch4:         rust-pr70163-prepare-for-llvm-10-upgrade.patch
+
+# https://github.com/rust-lang/rust/pull/71782
+Patch5:         rust-pr71782-Use-a-non-existent-test-path.patch
 
 # libcurl on EL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
@@ -420,6 +423,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch5 -p1
 
 %if %without curl_http2
 %patch10 -p1
@@ -730,6 +734,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu May 07 2020 Josh Stone <jistone@redhat.com> - 1.43.1-1
+- Update to 1.43.1.
+
 * Thu Apr 23 2020 Josh Stone <jistone@redhat.com> - 1.43.0-1
 - Update to 1.43.0.
 

@@ -48,7 +48,7 @@
 %endif
 
 Name:           rust
-Version:        1.43.0
+Version:        1.43.1
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -76,6 +76,9 @@ Patch3:         rust-pr70591-ensure-llvm-is-in-the-link-path.patch
 # Prepare for LLVM 10 upgrade
 # https://github.com/rust-lang/rust/pull/70163
 Patch4:         rust-pr70163-prepare-for-llvm-10-upgrade.patch
+
+# https://github.com/rust-lang/rust/pull/71782
+Patch5:         rust-pr71782-Use-a-non-existent-test-path.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -409,6 +412,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch5 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -714,6 +718,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu May 07 2020 Josh Stone <jistone@redhat.com> - 1.43.1-1
+- Update to 1.43.1.
+
 * Thu Apr 23 2020 Josh Stone <jistone@redhat.com> - 1.43.0-1
 - Update to 1.43.0.
 

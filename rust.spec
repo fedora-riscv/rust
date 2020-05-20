@@ -56,7 +56,7 @@
 
 Name:           rust
 Version:        1.43.1
-Release:        1%{?dist}
+Release:        1%{?dist}.1
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -175,7 +175,7 @@ Provides:       bundled(llvm) = 9.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
-%global llvm llvm7.0
+%global llvm llvm9.0
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -734,6 +734,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Tue May 19 2020 Josh Stone <jistone@redhat.com> - 1.43.1-1.1
+- Rebuild with LLVM 9.
+
 * Thu May 07 2020 Josh Stone <jistone@redhat.com> - 1.43.1-1
 - Update to 1.43.1.
 

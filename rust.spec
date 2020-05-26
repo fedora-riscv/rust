@@ -176,6 +176,8 @@ Provides:       bundled(llvm) = 9.0.0
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
 %global llvm llvm9.0
+# in transition, need to explicitly require llvm7.0, rather than llvm-toolset-7
+BuildRequires:  llvm7.0-libs
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}

@@ -49,7 +49,7 @@
 
 Name:           rust
 Version:        1.43.1
-Release:        1%{?dist}
+Release:        1%{?dist}.1
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -718,6 +718,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu May 28 2020 Josh Stone <jistone@redhat.com> - 1.43.1-1.1
+- Rebuild for rhbz1837660.
+
 * Thu May 07 2020 Josh Stone <jistone@redhat.com> - 1.43.1-1
 - Update to 1.43.1.
 

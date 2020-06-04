@@ -49,7 +49,7 @@ index f732abc52b71..edadecf273a7 100644
 -error: io error modifying /dev/
 +error: io error modifying /does-not-exist/
  
- error: aborting due to previous error
+ error: aborting due to previous error; 1 warning emitted
  
 -- 
 2.26.2

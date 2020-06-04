@@ -75,7 +75,7 @@ Patch1:         rust-pr71782-Use-a-non-existent-test-path.patch
 
 # libcurl on EL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch10:        rustc-1.43.0-disable-http2.patch
+Patch10:        rustc-1.44.0-disable-http2.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)

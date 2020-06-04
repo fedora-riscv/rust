@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.42.0
-%global bootstrap_cargo 1.42.0
-%global bootstrap_channel 1.42.0
-%global bootstrap_date 2020-03-12
+%global bootstrap_rust 1.43.1
+%global bootstrap_cargo 1.43.1
+%global bootstrap_channel 1.43.1
+%global bootstrap_date 2020-05-07
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -55,8 +55,8 @@
 %endif
 
 Name:           rust
-Version:        1.43.1
-Release:        1%{?dist}.1
+Version:        1.44.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -70,22 +70,8 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# Revert https://github.com/rust-lang/rust/pull/57840
-# We do have the necessary fix in our LLVM 7.
-Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
-
-# Ensure LLVM is in the link path for rustc tools and "fulldeps" tests
-# https://github.com/rust-lang/rust/pull/70123
-# https://github.com/rust-lang/rust/pull/70591
-Patch2:         rust-pr70123-ensure-llvm-is-in-the-link-path.patch
-Patch3:         rust-pr70591-ensure-llvm-is-in-the-link-path.patch
-
-# Prepare for LLVM 10 upgrade
-# https://github.com/rust-lang/rust/pull/70163
-Patch4:         rust-pr70163-prepare-for-llvm-10-upgrade.patch
-
 # https://github.com/rust-lang/rust/pull/71782
-Patch5:         rust-pr71782-Use-a-non-existent-test-path.patch
+Patch1:         rust-pr71782-Use-a-non-existent-test-path.patch
 
 # libcurl on EL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
@@ -154,7 +140,7 @@ BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(zlib)
 
 %if %without bundled_libgit2
-BuildRequires:  pkgconfig(libgit2) >= 0.27
+BuildRequires:  pkgconfig(libgit2) >= 1.0.0
 %endif
 
 %if %without bundled_libssh2
@@ -171,13 +157,11 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 9.0.0
+Provides:       bundled(llvm) = 9.0.1
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
 %global llvm llvm9.0
-# in transition, need to explicitly require llvm7.0, rather than llvm-toolset-7
-BuildRequires:  llvm7.0-libs
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -185,7 +169,7 @@ BuildRequires:  llvm7.0-libs
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 7.0
+BuildRequires:  %{llvm}-devel >= 8.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -199,7 +183,7 @@ BuildRequires:  procps-ng
 BuildRequires:  gdb
 
 # TODO: work on unbundling these!
-Provides:       bundled(libbacktrace) = 8.1.0
+Provides:       bundled(libbacktrace) = 1.0.20200219
 
 # Virtual provides for folks who attempt "dnf install rustc"
 Provides:       rustc = %{version}-%{release}
@@ -310,7 +294,7 @@ its standard library.
 %package -n cargo
 Summary:        Rust's package manager and build tool
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.99.0
+Provides:       bundled(libgit2) = 1.0.0
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.9.0~dev
@@ -356,7 +340,7 @@ A tool for formatting Rust code according to style guidelines.
 %package -n rls
 Summary:        Rust Language Server for IDE integration
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.99.0
+Provides:       bundled(libgit2) = 1.0.0
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.9.0~dev
@@ -421,11 +405,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -R
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
+%patch1 -p1
 
 %if %without curl_http2
 %patch10 -p1
@@ -736,6 +716,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Jun 04 2020 Josh Stone <jistone@redhat.com> - 1.44.0-1
+- Update to 1.44.0.
+
 * Tue May 19 2020 Josh Stone <jistone@redhat.com> - 1.43.1-1.1
 - Rebuild with LLVM 9.
 

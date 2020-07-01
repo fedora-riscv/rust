@@ -49,7 +49,7 @@
 
 Name:           rust
 Version:        1.44.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -450,6 +450,11 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 
 
 %build
+# This package fails to build with LTO due to undefined symbols.  LTO
+# was disabled in OpenSuSE as well, but with no real explanation why
+# beyond the undefined symbols.  It really should be investigated further.
+# Disable LTO
+%define _lto_cflags %{nil}
 
 %if %without bundled_libgit2
 # convince libgit2-sys to use the distro libgit2
@@ -700,6 +705,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Wed Jul 01 2020 Josh Stone <jistone@redhat.com> - 1.44.1-2
+- Disable LTO
+
 * Thu Jun 18 2020 Josh Stone <jistone@redhat.com> - 1.44.1-1
 - Update to 1.44.1.
 

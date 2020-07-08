@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.42.0
-%global bootstrap_cargo 1.42.0
-%global bootstrap_channel 1.42.0
-%global bootstrap_date 2020-03-12
+%global bootstrap_rust 1.43.1
+%global bootstrap_cargo 1.43.1
+%global bootstrap_channel 1.43.1
+%global bootstrap_date 2020-05-07
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -48,8 +48,8 @@
 %endif
 
 Name:           rust
-Version:        1.43.0
-Release:        0.1.beta.5%{?dist}
+Version:        1.44.1
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -63,20 +63,8 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# Revert https://github.com/rust-lang/rust/pull/57840
-# We do have the necessary fix in our LLVM 7.
-Patch1:         rust-pr57840-llvm7-debuginfo-variants.patch
-
-# Ensure LLVM is in the link path for rustc tools and "fulldeps" tests
-# https://github.com/rust-lang/rust/pull/70123
-# https://github.com/rust-lang/rust/pull/70591
-Patch2:         rust-pr70123-ensure-llvm-is-in-the-link-path.patch
-Patch3:         rust-pr70591-ensure-llvm-is-in-the-link-path.patch
-
-# Prepare for LLVM 10 upgrade
-# https://github.com/rust-lang/rust/pull/70163
-# NOTE: removed a test change that doesn't apply in 1.42, in src/tools/compiletest/src/header/tests.rs
-Patch4:         rust-pr70163-prepare-for-llvm-10-upgrade.patch
+# https://github.com/rust-lang/rust/pull/71782
+Patch1:         rust-pr71782-Use-a-non-existent-test-path.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -141,7 +129,7 @@ BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(zlib)
 
 %if %without bundled_libgit2
-BuildRequires:  pkgconfig(libgit2) >= 0.27
+BuildRequires:  pkgconfig(libgit2) >= 1.0.0
 %endif
 
 %if %without bundled_libssh2
@@ -158,11 +146,11 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 9.0.0
+Provides:       bundled(llvm) = 9.0.1
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
-%global llvm llvm7.0
+%global llvm llvm9.0
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -170,7 +158,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 7.0
+BuildRequires:  %{llvm}-devel >= 8.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -184,7 +172,7 @@ BuildRequires:  procps-ng
 BuildRequires:  gdb
 
 # TODO: work on unbundling these!
-Provides:       bundled(libbacktrace) = 8.1.0
+Provides:       bundled(libbacktrace) = 1.0.20200219
 
 # Virtual provides for folks who attempt "dnf install rustc"
 Provides:       rustc = %{version}-%{release}
@@ -295,7 +283,7 @@ its standard library.
 %package -n cargo
 Summary:        Rust's package manager and build tool
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.99.0
+Provides:       bundled(libgit2) = 1.0.0
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.9.0~dev
@@ -341,7 +329,7 @@ A tool for formatting Rust code according to style guidelines.
 %package -n rls
 Summary:        Rust Language Server for IDE integration
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 0.99.0
+Provides:       bundled(libgit2) = 1.0.0
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.9.0~dev
@@ -406,10 +394,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -R
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
+%patch1 -p1
 
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
@@ -465,6 +450,11 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 
 
 %build
+# This package fails to build with LTO due to undefined symbols.  LTO
+# was disabled in OpenSuSE as well, but with no real explanation why
+# beyond the undefined symbols.  It really should be investigated further.
+# Disable LTO
+%define _lto_cflags %{nil}
 
 %if %without bundled_libgit2
 # convince libgit2-sys to use the distro libgit2
@@ -715,6 +705,21 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Wed Jul 01 2020 Josh Stone <jistone@redhat.com> - 1.44.1-2
+- Disable LTO
+
+* Thu Jun 18 2020 Josh Stone <jistone@redhat.com> - 1.44.1-1
+- Update to 1.44.1.
+
+* Thu Jun 04 2020 Josh Stone <jistone@redhat.com> - 1.44.0-1
+- Update to 1.44.0.
+
+* Thu May 07 2020 Josh Stone <jistone@redhat.com> - 1.43.1-1
+- Update to 1.43.1.
+
+* Thu Apr 23 2020 Josh Stone <jistone@redhat.com> - 1.43.0-1
+- Update to 1.43.0.
+
 * Thu Mar 12 2020 Josh Stone <jistone@redhat.com> - 1.42.0-1
 - Update to 1.42.0.
 

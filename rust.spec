@@ -48,8 +48,8 @@
 %endif
 
 Name:           rust
-Version:        1.46.0
-Release:        0.1.beta.3%{?dist}
+Version:        1.45.0
+Release:        0.1.beta.4%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)

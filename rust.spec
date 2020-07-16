@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.43.1
-%global bootstrap_cargo 1.43.1
-%global bootstrap_channel 1.43.1
-%global bootstrap_date 2020-05-07
+%global bootstrap_rust 1.44.0
+%global bootstrap_cargo 1.44.0
+%global bootstrap_channel 1.44.0
+%global bootstrap_date 2020-06-04
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -21,7 +21,7 @@
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 7.0+.
+# is insufficient.  Rust currently requires LLVM 8.0+.
 %if 0%{?rhel} && !0%{?epel}
 %bcond_without bundled_llvm
 %else
@@ -48,8 +48,8 @@
 %endif
 
 Name:           rust
-Version:        1.44.1
-Release:        2%{?dist}
+Version:        1.45.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -62,9 +62,6 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
-
-# https://github.com/rust-lang/rust/pull/71782
-Patch1:         rust-pr71782-Use-a-non-existent-test-path.patch
 
 # Get the Rust triple for any arch.
 %{lua: function rust_triple(arch)
@@ -146,7 +143,7 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 9.0.1
+Provides:       bundled(llvm) = 10.0.1
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel}
@@ -394,8 +391,6 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1
-
 %if "%{python}" == "python3"
 sed -i.try-py3 -e '/try python2.7/i try python3 "$@"' ./configure
 %endif
@@ -506,6 +501,7 @@ export LIBSSH2_SYS_USE_PKG_CONFIG=1
   --disable-rpath \
   %{enable_debuginfo} \
   --enable-extended \
+  --tools=analysis,cargo,clippy,rls,rustfmt,src \
   --enable-vendor \
   --enable-verbose-tests \
   %{?codegen_units_std} \
@@ -613,7 +609,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 %dir %{rustlibdir}/%{rust_triple}
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.so
-%exclude %{_bindir}/*miri
 
 
 %files std-static
@@ -705,7 +700,10 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
-* Wed Jul 01 2020 Josh Stone <jistone@redhat.com> - 1.44.1-2
+* Thu Jul 16 2020 Josh Stone <jistone@redhat.com> - 1.45.0-1
+- Update to 1.45.0.
+
+* Wed Jul 01 2020 Jeff Law <law@redhat.com> - 1.44.1-2
 - Disable LTO
 
 * Thu Jun 18 2020 Josh Stone <jistone@redhat.com> - 1.44.1-1

@@ -1,6 +1,6 @@
---- rustc-1.44.0-src/Cargo.lock.orig	2020-06-01 08:44:15.000000000 -0700
-+++ rustc-1.44.0-src/Cargo.lock	2020-06-04 15:54:08.234883383 -0700
-@@ -817,7 +817,6 @@
+--- rustc-1.45.0-src/Cargo.lock.orig	2020-07-13 09:27:24.000000000 -0700
++++ rustc-1.45.0-src/Cargo.lock	2020-07-16 12:12:32.253903599 -0700
+@@ -896,7 +896,6 @@
  dependencies = [
   "cc",
   "libc",
@@ -8,7 +8,7 @@
   "libz-sys",
   "openssl-sys",
   "pkg-config",
-@@ -1808,16 +1807,6 @@
+@@ -1875,16 +1874,6 @@
  ]
  
  [[package]]
@@ -25,10 +25,10 @@
  name = "libssh2-sys"
  version = "0.2.14"
  source = "registry+https://github.com/rust-lang/crates.io-index"
---- rustc-1.44.0-src/src/tools/cargo/Cargo.toml.orig	2020-06-01 08:44:43.000000000 -0700
-+++ rustc-1.44.0-src/src/tools/cargo/Cargo.toml	2020-06-04 15:54:08.234883383 -0700
+--- rustc-1.45.0-src/src/tools/cargo/Cargo.toml.orig	2020-07-13 09:27:49.000000000 -0700
++++ rustc-1.45.0-src/src/tools/cargo/Cargo.toml	2020-07-16 12:12:32.253903599 -0700
 @@ -25,7 +25,7 @@
- crates-io = { path = "crates/crates-io", version = "0.31" }
+ crates-io = { path = "crates/crates-io", version = "0.31.1" }
  crossbeam-utils = "0.7"
  crypto-hash = "0.3.1"
 -curl = { version = "0.4.23", features = ["http2"] }
@@ -36,9 +36,9 @@
  curl-sys = "0.4.22"
  env_logger = "0.7.0"
  pretty_env_logger = { version = "0.4", optional = true }
---- rustc-1.44.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2020-06-01 08:44:43.000000000 -0700
-+++ rustc-1.44.0-src/src/tools/cargo/src/cargo/core/package.rs	2020-06-04 15:54:08.234883383 -0700
-@@ -385,14 +385,8 @@
+--- rustc-1.45.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2020-07-13 09:27:49.000000000 -0700
++++ rustc-1.45.0-src/src/tools/cargo/src/cargo/core/package.rs	2020-07-16 12:12:32.253903599 -0700
+@@ -393,14 +393,8 @@
          // Also note that pipelining is disabled as curl authors have indicated
          // that it's buggy, and we've empirically seen that it's buggy with HTTP
          // proxies.
@@ -55,7 +55,7 @@
  
          Ok(PackageSet {
              packages: package_ids
-@@ -562,7 +556,7 @@
+@@ -563,7 +557,7 @@
  macro_rules! try_old_curl {
      ($e:expr, $msg:expr) => {
          let result = $e;

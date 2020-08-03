@@ -55,7 +55,7 @@
 %endif
 
 Name:           rust
-Version:        1.45.0
+Version:        1.45.2
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -716,6 +716,15 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Mon Aug 03 2020 Josh Stone <jistone@redhat.com> - 1.45.2-1
+- Update to 1.45.2.
+
+* Thu Jul 30 2020 Josh Stone <jistone@redhat.com> - 1.45.1-1
+- Update to 1.45.1.
+
+* Wed Jul 29 2020 Fedora Release Engineering <releng@fedoraproject.org> - 1.45.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_33_Mass_Rebuild
+
 * Thu Jul 16 2020 Josh Stone <jistone@redhat.com> - 1.45.0-1
 - Update to 1.45.0.
 

@@ -1,0 +1,20 @@
+diff --git a/src/librustc_codegen_ssa/back/link.rs b/src/librustc_codegen_ssa/back/link.rs
+index dcce1d45298c..5c11f7276f26 100644
+--- a/src/librustc_codegen_ssa/back/link.rs
++++ b/src/librustc_codegen_ssa/back/link.rs
+@@ -1184,10 +1184,12 @@ fn exec_linker(
+ }
+ 
+ fn link_output_kind(sess: &Session, crate_type: CrateType) -> LinkOutputKind {
+-    let kind = match (crate_type, sess.crt_static(Some(crate_type)), sess.relocation_model()) {
+-        (CrateType::Executable, false, RelocModel::Pic) => LinkOutputKind::DynamicPicExe,
++    // Only use PIE if explicity specified.
++    let explicit_pic = matches!(sess.opts.cg.relocation_model, Some(RelocModel::Pic));
++    let kind = match (crate_type, sess.crt_static(Some(crate_type)), explicit_pic) {
++        (CrateType::Executable, false, true) => LinkOutputKind::DynamicPicExe,
+         (CrateType::Executable, false, _) => LinkOutputKind::DynamicNoPicExe,
+-        (CrateType::Executable, true, RelocModel::Pic) => LinkOutputKind::StaticPicExe,
++        (CrateType::Executable, true, true) => LinkOutputKind::StaticPicExe,
+         (CrateType::Executable, true, _) => LinkOutputKind::StaticNoPicExe,
+         (_, true, _) => LinkOutputKind::StaticDylib,
+         (_, false, _) => LinkOutputKind::DynamicDylib,

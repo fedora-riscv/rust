@@ -1,0 +1,29 @@
+From 02fc16aece46abcd23d2ade2d969497f07fe26ab Mon Sep 17 00:00:00 2001
+From: Alex Crichton <alex@alexcrichton.com>
+Date: Fri, 7 Aug 2020 12:50:25 -0700
+Subject: [PATCH] Fix jobserver_exists test on single-cpu systems
+
+Closes #8595
+---
+ tests/testsuite/jobserver.rs | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/tests/testsuite/jobserver.rs b/tests/testsuite/jobserver.rs
+index 9e91c956cd75..16518ee2c614 100644
+--- a/tests/testsuite/jobserver.rs
++++ b/tests/testsuite/jobserver.rs
+@@ -51,7 +51,10 @@ fn jobserver_exists() {
+         .file("src/lib.rs", "")
+         .build();
+ 
+-    p.cargo("build").run();
++    // Explicitly use `-j2` to ensure that there's eventually going to be a
++    // token to read from `valdiate` above, since running the build script
++    // itself consumes a token.
++    p.cargo("build -j2").run();
+ }
+ 
+ #[cargo_test]
+-- 
+2.26.2
+

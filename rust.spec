@@ -53,7 +53,7 @@
 
 Name:           rust
 Version:        1.46.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -69,6 +69,8 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
 # https://github.com/rust-lang/cargo/pull/8598
 Patch1:         0001-Fix-jobserver_exists-test-on-single-cpu-systems.patch
+# https://github.com/rust-lang/cargo/pull/8657 (backported)
+Patch2:         0002-Fix-LTO-with-doctests.patch
 
 ### RHEL-specific patches below ###
 
@@ -409,6 +411,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1 -d src/tools/cargo
+%patch2 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -744,6 +747,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Fri Aug 28 2020 Fabio Valentini <decathorpe@gmail.com> - 1.46.0-2
+- Fix LTO with doctests (backported cargo PR#8657).
+
 * Thu Aug 27 2020 Josh Stone <jistone@redhat.com> - 1.46.0-1
 - Update to 1.46.0.
 

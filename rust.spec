@@ -70,6 +70,9 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # https://github.com/rust-lang/backtrace-rs/pull/373
 Patch1:         0001-use-NativeEndian-in-symbolize-gimli-Context.patch
 
+# https://github.com/rust-lang/rust/pull/77777
+Patch2:         0001-doc-disambiguate-stat-in-MetadataExt-as_raw_stat.patch
+
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
@@ -406,6 +409,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1 -d library/backtrace
+%patch2 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1

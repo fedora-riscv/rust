@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.45.2
-%global bootstrap_cargo 1.45.2
-%global bootstrap_channel 1.45.2
-%global bootstrap_date 2020-08-03
+%global bootstrap_rust 1.46.0
+%global bootstrap_cargo 1.46.0
+%global bootstrap_channel 1.46.0
+%global bootstrap_date 2020-08-27
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -52,8 +52,8 @@
 %endif
 
 Name:           rust
-Version:        1.46.0
-Release:        2%{?dist}
+Version:        1.47.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -67,19 +67,20 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-lang/cargo/pull/8598
-Patch1:         0001-Fix-jobserver_exists-test-on-single-cpu-systems.patch
-# https://github.com/rust-lang/cargo/pull/8657 (backported)
-Patch2:         0002-Fix-LTO-with-doctests.patch
+# https://github.com/rust-lang/backtrace-rs/pull/373
+Patch1:         0001-use-NativeEndian-in-symbolize-gimli-Context.patch
+
+# https://github.com/rust-lang/rust/pull/77777
+Patch2:         0001-doc-disambiguate-stat-in-MetadataExt-as_raw_stat.patch
 
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
-Patch100:       rustc-1.42.0-disable-libssh2.patch
+Patch100:       rustc-1.47.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.45.0-disable-http2.patch
+Patch101:       rustc-1.47.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -166,7 +167,7 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 10.0.1
+Provides:       bundled(llvm) = 11.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
@@ -190,9 +191,6 @@ BuildRequires:  procps-ng
 
 # debuginfo-gdb tests need gdb
 BuildRequires:  gdb
-
-# TODO: work on unbundling these!
-Provides:       bundled(libbacktrace) = 1.0.20200219
 
 # Virtual provides for folks who attempt "dnf install rustc"
 Provides:       rustc = %{version}-%{release}
@@ -410,7 +408,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -d src/tools/cargo
+%patch1 -p1 -d library/backtrace
 %patch2 -p1
 
 %if %with disabled_libssh2
@@ -456,9 +454,6 @@ rm -rf vendor/libssh2-sys/
 # This only affects the transient rust-installer, but let it use our dynamic xz-libs
 sed -i.lzma -e '/LZMA_API_STATIC/d' src/bootstrap/tool.rs
 
-# rename bundled license for packaging
-cp -a vendor/backtrace-sys/src/libbacktrace/LICENSE{,-libbacktrace}
-
 %if %{with bundled_llvm} && 0%{?epel} == 7
 mkdir -p cmake-bin
 ln -s /usr/bin/cmake3 cmake-bin/cmake
@@ -482,6 +477,20 @@ find vendor -name .cargo-checksum.json \
 # it's a shebang and make them executable. Then brp-mangle-shebangs gets upset...
 find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 
+# Set up shared environment variables for build/install/check
+%global rust_env RUSTFLAGS="%{rustflags}"
+%if 0%{?cmake_path:1}
+%global rust_env %{rust_env} PATH="%{cmake_path}:$PATH"
+%endif
+%if %without bundled_libgit2
+# convince libgit2-sys to use the distro libgit2
+%global rust_env %{rust_env} LIBGIT2_SYS_USE_PKG_CONFIG=1
+%endif
+%if %without bundled_libssh2
+# convince libssh2-sys to use the distro libssh2
+%global rust_env %{rust_env} LIBSSH2_SYS_USE_PKG_CONFIG=1
+%endif
+
 
 %build
 # This package fails to build with LTO due to undefined symbols.  LTO
@@ -490,18 +499,7 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 # Disable LTO
 %define _lto_cflags %{nil}
 
-%if %without bundled_libgit2
-# convince libgit2-sys to use the distro libgit2
-export LIBGIT2_SYS_USE_PKG_CONFIG=1
-%endif
-
-%if %without bundled_libssh2
-# convince libssh2-sys to use the distro libssh2
-export LIBSSH2_SYS_USE_PKG_CONFIG=1
-%endif
-
-%{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?rustflags:export RUSTFLAGS="%{rustflags}"}
+export %{rust_env}
 
 # We're going to override --libdir when configuring to get rustlib into a
 # common path, but we'll fix the shared libraries during install.
@@ -555,12 +553,11 @@ fi
   --release-channel=%{channel}
 
 %{python} ./x.py build -j "$ncpus" --stage 2
-%{python} ./x.py doc
+%{python} ./x.py doc --stage 2
 
 
 %install
-%{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?rustflags:export RUSTFLAGS="%{rustflags}"}
+export %{rust_env}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
 
@@ -624,20 +621,19 @@ ln -sT ../rust/html/cargo/ %{buildroot}%{_docdir}/cargo/html
 
 %if %without lldb
 rm -f %{buildroot}%{_bindir}/rust-lldb
-rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
+rm -f %{buildroot}%{rustlibdir}/etc/lldb_*
 %endif
 
 
 %check
-%{?cmake_path:export PATH=%{cmake_path}:$PATH}
-%{?rustflags:export RUSTFLAGS="%{rustflags}"}
+export %{rust_env}
 
 # The results are not stable on koji, so mask errors and just log it.
-%{python} ./x.py test --no-fail-fast || :
-%{python} ./x.py test --no-fail-fast cargo || :
-%{python} ./x.py test --no-fail-fast clippy || :
-%{python} ./x.py test --no-fail-fast rls || :
-%{python} ./x.py test --no-fail-fast rustfmt || :
+%{python} ./x.py test --no-fail-fast --stage 2 || :
+%{python} ./x.py test --no-fail-fast --stage 2 cargo || :
+%{python} ./x.py test --no-fail-fast --stage 2 clippy || :
+%{python} ./x.py test --no-fail-fast --stage 2 rls || :
+%{python} ./x.py test --no-fail-fast --stage 2 rustfmt || :
 
 
 %ldconfig_scriptlets
@@ -645,7 +641,6 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %files
 %license COPYRIGHT LICENSE-APACHE LICENSE-MIT
-%license vendor/backtrace-sys/src/libbacktrace/LICENSE-libbacktrace
 %doc README.md
 %{_bindir}/rustc
 %{_bindir}/rustdoc
@@ -673,14 +668,14 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 %files gdb
 %{_bindir}/rust-gdb
-%{rustlibdir}/etc/gdb_*.py*
+%{rustlibdir}/etc/gdb_*
 %exclude %{_bindir}/rust-gdbgui
 
 
 %if %with lldb
 %files lldb
 %{_bindir}/rust-lldb
-%{rustlibdir}/etc/lldb_*.py*
+%{rustlibdir}/etc/lldb_*
 %endif
 
 
@@ -747,6 +742,9 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*.py*
 
 
 %changelog
+* Thu Oct 08 2020 Josh Stone <jistone@redhat.com> - 1.47.0-1
+- Update to 1.47.0.
+
 * Fri Aug 28 2020 Fabio Valentini <decathorpe@gmail.com> - 1.46.0-2
 - Fix LTO with doctests (backported cargo PR#8657).
 

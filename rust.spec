@@ -629,11 +629,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*
 export %{rust_env}
 
 # The results are not stable on koji, so mask errors and just log it.
-%{python} ./x.py test --no-fail-fast || :
-%{python} ./x.py test --no-fail-fast cargo || :
-%{python} ./x.py test --no-fail-fast clippy || :
-%{python} ./x.py test --no-fail-fast rls || :
-%{python} ./x.py test --no-fail-fast rustfmt || :
+%{python} ./x.py test --no-fail-fast --stage 2 || :
+%{python} ./x.py test --no-fail-fast --stage 2 cargo || :
+%{python} ./x.py test --no-fail-fast --stage 2 clippy || :
+%{python} ./x.py test --no-fail-fast --stage 2 rls || :
+%{python} ./x.py test --no-fail-fast --stage 2 rustfmt || :
 
 
 %ldconfig_scriptlets

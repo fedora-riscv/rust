@@ -53,7 +53,7 @@
 
 Name:           rust
 Version:        1.47.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -493,12 +493,6 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 
 
 %build
-# This package fails to build with LTO due to undefined symbols.  LTO
-# was disabled in OpenSuSE as well, but with no real explanation why
-# beyond the undefined symbols.  It really should be investigated further.
-# Disable LTO
-%define _lto_cflags %{nil}
-
 export %{rust_env}
 
 # We're going to override --libdir when configuring to get rustlib into a
@@ -742,6 +736,9 @@ export %{rust_env}
 
 
 %changelog
+* Sat Oct 10 2020 Jeff Law <law@redhat.com> - 1.47.0-2
+- Re-enable LTO
+
 * Thu Oct 08 2020 Josh Stone <jistone@redhat.com> - 1.47.0-1
 - Update to 1.47.0.
 

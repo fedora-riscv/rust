@@ -1,5 +1,5 @@
 # Only x86_64 and i686 are Tier 1 platforms at this time.
-# https://forge.rust-lang.org/platform-support.html
+# https://doc.rust-lang.org/nightly/rustc/platform-support.html
 %global rust_arches x86_64 i686 armv7hl aarch64 ppc64 ppc64le s390x
 
 # The channel can be stable, beta, or nightly
@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.46.0
-%global bootstrap_cargo 1.46.0
-%global bootstrap_channel 1.46.0
-%global bootstrap_date 2020-08-27
+%global bootstrap_rust 1.47.0
+%global bootstrap_cargo 1.47.0
+%global bootstrap_channel 1.47.0
+%global bootstrap_date 2020-10-08
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -52,8 +52,8 @@
 %endif
 
 Name:           rust
-Version:        1.47.0
-Release:        2%{?dist}
+Version:        1.48.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -76,15 +76,15 @@ Patch2:         0001-doc-disambiguate-stat-in-MetadataExt-as_raw_stat.patch
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
-Patch100:       rustc-1.47.0-disable-libssh2.patch
+Patch100:       rustc-1.48.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.47.0-disable-http2.patch
+Patch101:       rustc-1.48.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
-Patch102:       rustc-1.45.0-no-default-pie.patch
+Patch102:       rustc-1.48.0-no-default-pie.patch
 
 
 # Get the Rust triple for any arch.
@@ -297,7 +297,7 @@ its standard library.
 %package -n cargo
 Summary:        Rust's package manager and build tool
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 1.0.0
+Provides:       bundled(libgit2) = 1.1.0
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.9.0~dev
@@ -343,7 +343,7 @@ A tool for formatting Rust code according to style guidelines.
 %package -n rls
 Summary:        Rust Language Server for IDE integration
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 1.0.0
+Provides:       bundled(libgit2) = 1.1.0
 %endif
 %if %with bundled_libssh2
 Provides:       bundled(libssh2) = 1.9.0~dev
@@ -421,7 +421,7 @@ rm -rf vendor/libnghttp2-sys/
 %endif
 
 %if 0%{?rhel} && 0%{?rhel} < 8
-%patch102 -p1 -b .no-pie
+%patch102 -p1
 %endif
 
 %if "%{python}" != "python3"
@@ -431,12 +431,14 @@ sed -i.try-python -e '/^try python3 /i try "%{python}" "$@"' ./configure
 
 %if %without bundled_llvm
 rm -rf src/llvm-project/
+mkdir -p src/llvm-project/libunwind/
 %endif
 
 # Remove other unused vendored libraries
 rm -rf vendor/curl-sys/curl/
 rm -rf vendor/jemalloc-sys/jemalloc/
 rm -rf vendor/libz-sys/src/zlib/
+rm -rf vendor/libz-sys/src/zlib-ng/
 rm -rf vendor/lzma-sys/xz-*/
 rm -rf vendor/openssl-src/openssl/
 
@@ -680,7 +682,6 @@ export %{rust_env}
 %{_docdir}/%{name}/html/*/
 %{_docdir}/%{name}/html/*.html
 %{_docdir}/%{name}/html/*.css
-%{_docdir}/%{name}/html/*.ico
 %{_docdir}/%{name}/html/*.js
 %{_docdir}/%{name}/html/*.png
 %{_docdir}/%{name}/html/*.svg
@@ -736,6 +737,9 @@ export %{rust_env}
 
 
 %changelog
+* Thu Nov 19 2020 Josh Stone <jistone@redhat.com> - 1.48.0-1
+- Update to 1.48.0.
+
 * Sat Oct 10 2020 Jeff Law <law@redhat.com> - 1.47.0-2
 - Re-enable LTO
 

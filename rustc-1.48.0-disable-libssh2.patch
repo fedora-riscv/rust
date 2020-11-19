@@ -1,6 +1,6 @@
---- rustc-1.47.0-src/Cargo.lock.orig	2020-10-07 00:53:22.000000000 -0700
-+++ rustc-1.47.0-src/Cargo.lock	2020-10-08 12:15:07.361298619 -0700
-@@ -1636,7 +1636,6 @@
+--- rustc-1.48.0-src/Cargo.lock.orig	2020-11-16 06:01:53.000000000 -0800
++++ rustc-1.48.0-src/Cargo.lock	2020-11-16 09:27:44.425104404 -0800
+@@ -1676,7 +1676,6 @@
  dependencies = [
   "cc",
   "libc",
@@ -8,14 +8,14 @@
   "libz-sys",
   "openssl-sys",
   "pkg-config",
-@@ -1653,20 +1652,6 @@
+@@ -1693,20 +1692,6 @@
  ]
  
  [[package]]
 -name = "libssh2-sys"
--version = "0.2.18"
+-version = "0.2.19"
 -source = "registry+https://github.com/rust-lang/crates.io-index"
--checksum = "eafa907407504b0e683786d4aba47acf250f114d37357d56608333fd167dd0fc"
+-checksum = "ca46220853ba1c512fc82826d0834d87b06bcd3c2a42241b7de72f3d2fe17056"
 -dependencies = [
 - "cc",
 - "libc",
@@ -27,10 +27,10 @@
 -
 -[[package]]
  name = "libz-sys"
- version = "1.0.27"
+ version = "1.1.2"
  source = "registry+https://github.com/rust-lang/crates.io-index"
---- rustc-1.47.0-src/vendor/git2/Cargo.toml.orig	2020-10-07 02:33:31.000000000 -0700
-+++ rustc-1.47.0-src/vendor/git2/Cargo.toml	2020-10-08 12:13:37.697228272 -0700
+--- rustc-1.48.0-src/vendor/git2/Cargo.toml.orig	2020-11-16 06:27:49.000000000 -0800
++++ rustc-1.48.0-src/vendor/git2/Cargo.toml	2020-11-16 09:27:44.425104404 -0800
 @@ -49,7 +49,7 @@
  version = "0.1.39"
  

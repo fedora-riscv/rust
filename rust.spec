@@ -157,7 +157,7 @@ BuildRequires:  pkgconfig(zlib)
 BuildRequires:  pkgconfig(libgit2) >= 1.0.0
 %endif
 
-%if %{without disabled_libssh2} && %{without bundled_libssh2}
+%if %{without disabled_libssh2}
 # needs libssh2_userauth_publickey_frommemory
 BuildRequires:  pkgconfig(libssh2) >= 1.6.0
 %endif
@@ -299,9 +299,6 @@ Summary:        Rust's package manager and build tool
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 1.1.0
 %endif
-%if %with bundled_libssh2
-Provides:       bundled(libssh2) = 1.9.0~dev
-%endif
 # For tests:
 BuildRequires:  git
 # Cargo is not much use without Rust
@@ -344,9 +341,6 @@ A tool for formatting Rust code according to style guidelines.
 Summary:        Rust Language Server for IDE integration
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 1.1.0
-%endif
-%if %with bundled_libssh2
-Provides:       bundled(libssh2) = 1.9.0~dev
 %endif
 Requires:       rust-analysis
 # /usr/bin/rls is dynamically linked against internal rustc libs
@@ -437,6 +431,7 @@ mkdir -p src/llvm-project/libunwind/
 # Remove other unused vendored libraries
 rm -rf vendor/curl-sys/curl/
 rm -rf vendor/jemalloc-sys/jemalloc/
+rm -rf vendor/libssh2-sys/libssh2/
 rm -rf vendor/libz-sys/src/zlib/
 rm -rf vendor/libz-sys/src/zlib-ng/
 rm -rf vendor/lzma-sys/xz-*/
@@ -446,9 +441,6 @@ rm -rf vendor/openssl-src/openssl/
 rm -rf vendor/libgit2-sys/libgit2/
 %endif
 
-%if %without bundled_libssh2
-rm -rf vendor/libssh2-sys/libssh2/
-%endif
 %if %with disabled_libssh2
 rm -rf vendor/libssh2-sys/
 %endif
@@ -488,7 +480,7 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 # convince libgit2-sys to use the distro libgit2
 %global rust_env %{rust_env} LIBGIT2_SYS_USE_PKG_CONFIG=1
 %endif
-%if %without bundled_libssh2
+%if %without disabled_libssh2
 # convince libssh2-sys to use the distro libssh2
 %global rust_env %{rust_env} LIBSSH2_SYS_USE_PKG_CONFIG=1
 %endif

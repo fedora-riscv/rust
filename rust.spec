@@ -53,7 +53,7 @@
 
 Name:           rust
 Version:        1.48.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -729,6 +729,9 @@ export %{rust_env}
 
 
 %changelog
+* Mon Dec 28 19:00:26 CET 2020 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.48.0-2
+- Rebuild for libgit2 1.1.x
+
 * Thu Nov 19 2020 Josh Stone <jistone@redhat.com> - 1.48.0-1
 - Update to 1.48.0.
 

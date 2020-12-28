@@ -15,7 +15,7 @@
 %global bootstrap_date 2020-10-08
 
 # Only the specified arches will use bootstrap binaries.
-#global bootstrap_arches %%{rust_arches}
+%global bootstrap_arches %%{rust_arches}
 
 # Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
@@ -24,7 +24,6 @@
 # is insufficient.  Rust currently requires LLVM 8.0+.
 %bcond_with bundled_llvm
 
-%global _with_bundled_libgit2 1
 # Requires stable libgit2 1.0
 %if 0%{?fedora} >= 32
 %bcond_with bundled_libgit2

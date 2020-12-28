@@ -24,6 +24,7 @@
 # is insufficient.  Rust currently requires LLVM 8.0+.
 %bcond_with bundled_llvm
 
+%global _with_bundled_libgit2
 # Requires stable libgit2 1.0
 %if 0%{?fedora} >= 32
 %bcond_with bundled_libgit2

@@ -15,7 +15,7 @@
 %global bootstrap_date 2020-10-08
 
 # Only the specified arches will use bootstrap binaries.
-%global bootstrap_arches %%{rust_arches}
+#global bootstrap_arches %%{rust_arches}
 
 # Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
@@ -53,7 +53,7 @@
 
 Name:           rust
 Version:        1.48.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -729,6 +729,9 @@ export %{rust_env}
 
 
 %changelog
+* Tue Dec 29 2020 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.48.0-3
+- De-bootstrap
+
 * Mon Dec 28 19:00:26 CET 2020 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.48.0-2
 - Rebuild for libgit2 1.1.x
 

@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.47.0
-%global bootstrap_cargo 1.47.0
-%global bootstrap_channel 1.47.0
-%global bootstrap_date 2020-10-08
+%global bootstrap_rust 1.48.0
+%global bootstrap_cargo 1.48.0
+%global bootstrap_channel 1.48.0
+%global bootstrap_date 2020-11-19
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -52,7 +52,7 @@
 %endif
 
 Name:           rust
-Version:        1.48.0
+Version:        1.49.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -67,12 +67,6 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# https://github.com/rust-lang/backtrace-rs/pull/373
-Patch1:         0001-use-NativeEndian-in-symbolize-gimli-Context.patch
-
-# https://github.com/rust-lang/rust/pull/77777
-Patch2:         0001-doc-disambiguate-stat-in-MetadataExt-as_raw_stat.patch
-
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
@@ -80,7 +74,7 @@ Patch100:       rustc-1.48.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.48.0-disable-http2.patch
+Patch101:       rustc-1.49.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -157,7 +151,7 @@ BuildRequires:  pkgconfig(zlib)
 BuildRequires:  pkgconfig(libgit2) >= 1.0.0
 %endif
 
-%if %{without disabled_libssh2} && %{without bundled_libssh2}
+%if %{without disabled_libssh2}
 # needs libssh2_userauth_publickey_frommemory
 BuildRequires:  pkgconfig(libssh2) >= 1.6.0
 %endif
@@ -179,7 +173,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 8.0
+BuildRequires:  %{llvm}-devel >= 9.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -299,9 +293,6 @@ Summary:        Rust's package manager and build tool
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 1.1.0
 %endif
-%if %with bundled_libssh2
-Provides:       bundled(libssh2) = 1.9.0~dev
-%endif
 # For tests:
 BuildRequires:  git
 # Cargo is not much use without Rust
@@ -344,9 +335,6 @@ A tool for formatting Rust code according to style guidelines.
 Summary:        Rust Language Server for IDE integration
 %if %with bundled_libgit2
 Provides:       bundled(libgit2) = 1.1.0
-%endif
-%if %with bundled_libssh2
-Provides:       bundled(libssh2) = 1.9.0~dev
 %endif
 Requires:       rust-analysis
 # /usr/bin/rls is dynamically linked against internal rustc libs
@@ -408,9 +396,6 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
-%patch1 -p1 -d library/backtrace
-%patch2 -p1
-
 %if %with disabled_libssh2
 %patch100 -p1
 %endif
@@ -437,6 +422,7 @@ mkdir -p src/llvm-project/libunwind/
 # Remove other unused vendored libraries
 rm -rf vendor/curl-sys/curl/
 rm -rf vendor/jemalloc-sys/jemalloc/
+rm -rf vendor/libssh2-sys/libssh2/
 rm -rf vendor/libz-sys/src/zlib/
 rm -rf vendor/libz-sys/src/zlib-ng/
 rm -rf vendor/lzma-sys/xz-*/
@@ -446,9 +432,6 @@ rm -rf vendor/openssl-src/openssl/
 rm -rf vendor/libgit2-sys/libgit2/
 %endif
 
-%if %without bundled_libssh2
-rm -rf vendor/libssh2-sys/libssh2/
-%endif
 %if %with disabled_libssh2
 rm -rf vendor/libssh2-sys/
 %endif
@@ -488,7 +471,7 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 # convince libgit2-sys to use the distro libgit2
 %global rust_env %{rust_env} LIBGIT2_SYS_USE_PKG_CONFIG=1
 %endif
-%if %without bundled_libssh2
+%if %without disabled_libssh2
 # convince libssh2-sys to use the distro libssh2
 %global rust_env %{rust_env} LIBSSH2_SYS_USE_PKG_CONFIG=1
 %endif
@@ -737,6 +720,15 @@ export %{rust_env}
 
 
 %changelog
+* Tue Jan 05 2021 Josh Stone <jistone@redhat.com> - 1.49.0-1
+- Update to 1.49.0.
+
+* Tue Dec 29 2020 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.48.0-3
+- De-bootstrap
+
+* Mon Dec 28 2020 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.48.0-2
+- Rebuild for libgit2 1.1.x
+
 * Thu Nov 19 2020 Josh Stone <jistone@redhat.com> - 1.48.0-1
 - Update to 1.48.0.
 

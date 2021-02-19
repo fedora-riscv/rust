@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.48.0
-%global bootstrap_cargo 1.48.0
-%global bootstrap_channel 1.48.0
-%global bootstrap_date 2020-11-19
+%global bootstrap_rust 1.49.0
+%global bootstrap_cargo 1.49.0
+%global bootstrap_channel 1.49.0
+%global bootstrap_date 2020-12-31
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -21,11 +21,11 @@
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 8.0+.
+# is insufficient.  Rust currently requires LLVM 9.0+.
 %bcond_with bundled_llvm
 
-# Requires stable libgit2 1.0
-%if 0%{?fedora} >= 32
+# Requires stable libgit2 1.1
+%if 0%{?fedora} >= 34
 %bcond_with bundled_libgit2
 %else
 %bcond_without bundled_libgit2
@@ -52,8 +52,8 @@
 %endif
 
 Name:           rust
-Version:        1.49.0
-Release:        2%{?dist}
+Version:        1.50.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -66,6 +66,10 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
+
+# This internal rust-abi change broke s390x -- revert for now.
+# https://github.com/rust-lang/rust/issues/80810#issuecomment-781784032
+Patch1:         0001-Revert-Auto-merge-of-79547.patch
 
 ### RHEL-specific patches below ###
 
@@ -148,7 +152,7 @@ BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(zlib)
 
 %if %without bundled_libgit2
-BuildRequires:  pkgconfig(libgit2) >= 1.0.0
+BuildRequires:  pkgconfig(libgit2) >= 1.1.0
 %endif
 
 %if %{without disabled_libssh2}
@@ -396,6 +400,8 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
+%patch1 -p1
+
 %if %with disabled_libssh2
 %patch100 -p1
 %endif
@@ -529,7 +535,8 @@ fi
   --enable-vendor \
   --enable-verbose-tests \
   %{?codegen_units_std} \
-  --release-channel=%{channel}
+  --release-channel=%{channel} \
+  --release-description="%{?fedora:Fedora }%{?rhel:Red Hat }%{version}-%{release}"
 
 %{python} ./x.py build -j "$ncpus" --stage 2
 %{python} ./x.py doc --stage 2
@@ -602,6 +609,9 @@ ln -sT ../rust/html/cargo/ %{buildroot}%{_docdir}/cargo/html
 rm -f %{buildroot}%{_bindir}/rust-lldb
 rm -f %{buildroot}%{rustlibdir}/etc/lldb_*
 %endif
+
+# We don't want Rust copies of LLVM tools (rust-lld, rust-llvm-dwp)
+rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 
 
 %check
@@ -677,6 +687,7 @@ export %{rust_env}
 %license src/tools/cargo/LICENSE-APACHE src/tools/cargo/LICENSE-MIT src/tools/cargo/LICENSE-THIRD-PARTY
 %doc src/tools/cargo/README.md
 %{_bindir}/cargo
+%{_libexecdir}/cargo*
 %{_mandir}/man1/cargo*.1*
 %{_sysconfdir}/bash_completion.d/cargo
 %{_datadir}/zsh/site-functions/_cargo
@@ -720,6 +731,9 @@ export %{rust_env}
 
 
 %changelog
+* Thu Feb 11 2021 Josh Stone <jistone@redhat.com> - 1.50.0-1
+- Update to 1.50.0.
+
 * Wed Jan 27 2021 Fedora Release Engineering <releng@fedoraproject.org> - 1.49.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_34_Mass_Rebuild
 

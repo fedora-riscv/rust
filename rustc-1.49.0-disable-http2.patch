@@ -1,0 +1,66 @@
+--- rustc-1.49.0-src/Cargo.lock.orig	2021-01-05 12:45:10.456414612 -0800
++++ rustc-1.49.0-src/Cargo.lock	2021-01-05 12:45:10.458414575 -0800
+@@ -882,7 +882,6 @@
+ dependencies = [
+  "cc",
+  "libc",
+- "libnghttp2-sys",
+  "libz-sys",
+  "openssl-sys",
+  "pkg-config",
+@@ -1728,16 +1727,6 @@
+ ]
+ 
+ [[package]]
+-name = "libnghttp2-sys"
+-version = "0.1.4+1.41.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "03624ec6df166e79e139a2310ca213283d6b3c30810c54844f307086d4488df1"
+-dependencies = [
+- "cc",
+- "libc",
+-]
+-
+-[[package]]
+ name = "libz-sys"
+ version = "1.1.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+--- rustc-1.49.0-src/src/tools/cargo/Cargo.toml.orig	2021-01-05 12:45:10.458414575 -0800
++++ rustc-1.49.0-src/src/tools/cargo/Cargo.toml	2021-01-05 12:47:25.966928554 -0800
+@@ -25,7 +25,7 @@
+ crates-io = { path = "crates/crates-io", version = "0.31.1" }
+ crossbeam-utils = "0.8"
+ crypto-hash = "0.3.1"
+-curl = { version = "0.4.23", features = ["http2"] }
++curl = { version = "0.4.23", features = [] }
+ curl-sys = "0.4.22"
+ env_logger = "0.8.1"
+ pretty_env_logger = { version = "0.4", optional = true }
+--- rustc-1.49.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2020-12-28 19:03:25.000000000 -0800
++++ rustc-1.49.0-src/src/tools/cargo/src/cargo/core/package.rs	2021-01-05 12:45:10.458414575 -0800
+@@ -408,14 +408,8 @@
+         // Also note that pipelining is disabled as curl authors have indicated
+         // that it's buggy, and we've empirically seen that it's buggy with HTTP
+         // proxies.
+-        let mut multi = Multi::new();
+-        let multiplexing = config.http_config()?.multiplexing.unwrap_or(true);
+-        multi
+-            .pipelining(false, multiplexing)
+-            .chain_err(|| "failed to enable multiplexing/pipelining in curl")?;
+-
+-        // let's not flood crates.io with connections
+-        multi.set_max_host_connections(2)?;
++        let multi = Multi::new();
++        let multiplexing = false;
+ 
+         Ok(PackageSet {
+             packages: package_ids
+@@ -584,7 +578,7 @@
+ macro_rules! try_old_curl {
+     ($e:expr, $msg:expr) => {
+         let result = $e;
+-        if cfg!(target_os = "macos") {
++        if cfg!(any(target_os = "linux", target_os = "macos")) {
+             if let Err(e) = result {
+                 warn!("ignoring libcurl {} error: {}", $msg, e);
+             }

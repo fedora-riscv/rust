@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.49.0
-%global bootstrap_cargo 1.49.0
-%global bootstrap_channel 1.49.0
-%global bootstrap_date 2020-12-31
+%global bootstrap_rust 1.50.0
+%global bootstrap_cargo 1.50.0
+%global bootstrap_channel 1.50.0
+%global bootstrap_date 2021-02-11
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -52,7 +52,7 @@
 %endif
 
 Name:           rust
-Version:        1.50.0
+Version:        1.51.0~beta.4
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -78,11 +78,11 @@ Patch100:       rustc-1.48.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.49.0-disable-http2.patch
+Patch101:       rustc-1.51.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
-Patch102:       rustc-1.48.0-no-default-pie.patch
+Patch102:       rustc-1.51.0-no-default-pie.patch
 
 
 # Get the Rust triple for any arch.
@@ -165,11 +165,15 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 11.0.0
+Provides:       bundled(llvm) = 11.0.1
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm9.0
+%endif
+%if 0%{?fedora} >= 34
+# we're not ready for llvm-12 yet
+%global llvm llvm11
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -731,6 +735,9 @@ export %{rust_env}
 
 
 %changelog
+* Tue Mar 09 2021 Josh Stone <jistone@redhat.com> - 1.51.0~beta.4-1
+- beta test
+
 * Thu Feb 11 2021 Josh Stone <jistone@redhat.com> - 1.50.0-1
 - Update to 1.50.0.
 

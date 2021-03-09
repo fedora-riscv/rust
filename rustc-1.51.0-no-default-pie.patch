@@ -1,14 +1,15 @@
---- rustc-1.48.0-src/compiler/rustc_codegen_ssa/src/back/link.rs.orig	2020-11-16 06:01:53.000000000 -0800
-+++ rustc-1.48.0-src/compiler/rustc_codegen_ssa/src/back/link.rs	2020-11-16 09:37:15.779516797 -0800
-@@ -1185,10 +1185,12 @@
+--- rustc-beta-src/compiler/rustc_codegen_ssa/src/back/link.rs.orig	2021-03-09 10:40:09.755485845 -0800
++++ rustc-beta-src/compiler/rustc_codegen_ssa/src/back/link.rs	2021-03-09 10:44:51.257426181 -0800
+@@ -1279,11 +1279,13 @@
  }
  
  fn link_output_kind(sess: &Session, crate_type: CrateType) -> LinkOutputKind {
 -    let kind = match (crate_type, sess.crt_static(Some(crate_type)), sess.relocation_model()) {
--        (CrateType::Executable, false, RelocModel::Pic) => LinkOutputKind::DynamicPicExe,
 +    // Only use PIE if explicity specified.
 +    let explicit_pic = matches!(sess.opts.cg.relocation_model, Some(RelocModel::Pic));
 +    let kind = match (crate_type, sess.crt_static(Some(crate_type)), explicit_pic) {
+         (CrateType::Executable, _, _) if sess.is_wasi_reactor() => LinkOutputKind::WasiReactorExe,
+-        (CrateType::Executable, false, RelocModel::Pic) => LinkOutputKind::DynamicPicExe,
 +        (CrateType::Executable, false, true) => LinkOutputKind::DynamicPicExe,
          (CrateType::Executable, false, _) => LinkOutputKind::DynamicNoPicExe,
 -        (CrateType::Executable, true, RelocModel::Pic) => LinkOutputKind::StaticPicExe,

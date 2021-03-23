@@ -52,7 +52,7 @@
 %endif
 
 Name:           rust
-Version:        1.51.0~beta.4
+Version:        1.51.0~beta.8
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -735,7 +735,7 @@ export %{rust_env}
 
 
 %changelog
-* Tue Mar 09 2021 Josh Stone <jistone@redhat.com> - 1.51.0~beta.4-1
+* Fri Mar 19 2021 Josh Stone <jistone@redhat.com> - 1.51.0~beta.8-1
 - beta test
 
 * Thu Feb 11 2021 Josh Stone <jistone@redhat.com> - 1.50.0-1

@@ -83,6 +83,10 @@ Patch3:         rustc-1.51.0-backport-pr82289.patch
 # https://github.com/rust-lang/rust/pull/82292
 Patch4:         rustc-1.51.0-backport-pr82292.patch
 
+# Fix bootstrap for stage0 rust 1.51
+# https://github.com/rust-lang/rust/pull/81910
+Patch5:         rustc-1.51.0-backport-pr81910.patch
+
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
@@ -420,6 +424,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch5 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -752,6 +757,7 @@ export %{rust_env}
 %changelog
 * Wed Apr 14 2021 Josh Stone <jistone@redhat.com> - 1.51.0-2
 - Security fixes for CVE-2021-28876, CVE-2021-28878, CVE-2021-28879
+- Fix bootstrap for stage0 rust 1.51
 
 * Thu Mar 25 2021 Josh Stone <jistone@redhat.com> - 1.51.0-1
 - Update to 1.51.0.

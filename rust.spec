@@ -53,7 +53,7 @@
 
 Name:           rust
 Version:        1.51.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -70,6 +70,22 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # This internal rust-abi change broke s390x -- revert for now.
 # https://github.com/rust-lang/rust/issues/80810#issuecomment-781784032
 Patch1:         0001-Revert-Auto-merge-of-79547.patch
+
+# CVE-2021-28876 rust: panic safety issue in Zip implementation
+# https://github.com/rust-lang/rust/pull/81741
+Patch2:         rustc-1.51.0-backport-pr81741.patch
+
+# CVE-2021-28879 rust: integer overflow in the Zip implementation can lead to a buffer overflow
+# https://github.com/rust-lang/rust/pull/82289
+Patch3:         rustc-1.51.0-backport-pr82289.patch
+
+# CVE-2021-28878 rust: memory safety violation in Zip implementation when next_back() and next() are used together
+# https://github.com/rust-lang/rust/pull/82292
+Patch4:         rustc-1.51.0-backport-pr82292.patch
+
+# Fix bootstrap for stage0 rust 1.51
+# https://github.com/rust-lang/rust/pull/81910
+Patch5:         rustc-1.51.0-backport-pr81910.patch
 
 ### RHEL-specific patches below ###
 
@@ -405,6 +421,10 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
+%patch2 -p1
+%patch3 -p1
+%patch4 -p1
+%patch5 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -735,6 +755,10 @@ export %{rust_env}
 
 
 %changelog
+* Wed Apr 14 2021 Josh Stone <jistone@redhat.com> - 1.51.0-2
+- Security fixes for CVE-2021-28876, CVE-2021-28878, CVE-2021-28879
+- Fix bootstrap for stage0 rust 1.51
+
 * Thu Mar 25 2021 Josh Stone <jistone@redhat.com> - 1.51.0-1
 - Update to 1.51.0.
 

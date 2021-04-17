@@ -53,7 +53,7 @@
 
 Name:           rust
 Version:        1.51.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -86,6 +86,14 @@ Patch4:         rustc-1.51.0-backport-pr82292.patch
 # Fix bootstrap for stage0 rust 1.51
 # https://github.com/rust-lang/rust/pull/81910
 Patch5:         rustc-1.51.0-backport-pr81910.patch
+
+# CVE-2020-36323 rust: optimization for joining strings can cause uninitialized bytes to be exposed
+# https://github.com/rust-lang/rust/pull/81728
+Patch6:         rustc-1.51.0-backport-pr81728.patch
+
+# CVE-2021-31162 rust: double free in Vec::from_iter function if freeing the element panics
+# https://github.com/rust-lang/rust/pull/83629
+Patch7:         rustc-1.51.0-backport-pr83629.patch
 
 ### RHEL-specific patches below ###
 
@@ -425,6 +433,8 @@ test -f '%{local_rust_root}/bin/rustc'
 %patch3 -p1
 %patch4 -p1
 %patch5 -p1
+%patch6 -p1
+%patch7 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -755,6 +765,9 @@ export %{rust_env}
 
 
 %changelog
+* Fri Apr 16 2021 Josh Stone <jistone@redhat.com> - 1.51.0-3
+- Security fixes for CVE-2020-36323, CVE-2021-31162
+
 * Wed Apr 14 2021 Josh Stone <jistone@redhat.com> - 1.51.0-2
 - Security fixes for CVE-2021-28876, CVE-2021-28878, CVE-2021-28879
 - Fix bootstrap for stage0 rust 1.51

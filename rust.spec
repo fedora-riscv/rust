@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.50.0
-%global bootstrap_cargo 1.50.0
-%global bootstrap_channel 1.50.0
-%global bootstrap_date 2021-02-11
+%global bootstrap_rust 1.51.0
+%global bootstrap_cargo 1.51.0
+%global bootstrap_channel 1.51.0
+%global bootstrap_date 2021-03-25
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -52,8 +52,8 @@
 %endif
 
 Name:           rust
-Version:        1.51.0
-Release:        3%{?dist}
+Version:        1.52.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -70,30 +70,6 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # This internal rust-abi change broke s390x -- revert for now.
 # https://github.com/rust-lang/rust/issues/80810#issuecomment-781784032
 Patch1:         0001-Revert-Auto-merge-of-79547.patch
-
-# CVE-2021-28876 rust: panic safety issue in Zip implementation
-# https://github.com/rust-lang/rust/pull/81741
-Patch2:         rustc-1.51.0-backport-pr81741.patch
-
-# CVE-2021-28879 rust: integer overflow in the Zip implementation can lead to a buffer overflow
-# https://github.com/rust-lang/rust/pull/82289
-Patch3:         rustc-1.51.0-backport-pr82289.patch
-
-# CVE-2021-28878 rust: memory safety violation in Zip implementation when next_back() and next() are used together
-# https://github.com/rust-lang/rust/pull/82292
-Patch4:         rustc-1.51.0-backport-pr82292.patch
-
-# Fix bootstrap for stage0 rust 1.51
-# https://github.com/rust-lang/rust/pull/81910
-Patch5:         rustc-1.51.0-backport-pr81910.patch
-
-# CVE-2020-36323 rust: optimization for joining strings can cause uninitialized bytes to be exposed
-# https://github.com/rust-lang/rust/pull/81728
-Patch6:         rustc-1.51.0-backport-pr81728.patch
-
-# CVE-2021-31162 rust: double free in Vec::from_iter function if freeing the element panics
-# https://github.com/rust-lang/rust/pull/83629
-Patch7:         rustc-1.51.0-backport-pr83629.patch
 
 ### RHEL-specific patches below ###
 
@@ -188,16 +164,12 @@ BuildRequires:  pkgconfig(libssh2) >= 1.6.0
 BuildRequires:  %{python}
 
 %if %with bundled_llvm
-BuildRequires:  cmake3 >= 3.4.3
-Provides:       bundled(llvm) = 11.0.1
+BuildRequires:  cmake3 >= 3.13.4
+Provides:       bundled(llvm) = 12.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm9.0
-%endif
-%if 0%{?fedora} >= 34
-# we're not ready for llvm-12 yet
-%global llvm llvm11
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -429,12 +401,6 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
-%patch2 -p1
-%patch3 -p1
-%patch4 -p1
-%patch5 -p1
-%patch6 -p1
-%patch7 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -713,6 +679,7 @@ export %{rust_env}
 %{_docdir}/%{name}/html/*.png
 %{_docdir}/%{name}/html/*.svg
 %{_docdir}/%{name}/html/*.woff
+%{_docdir}/%{name}/html/*.woff2
 %license %{_docdir}/%{name}/html/*.txt
 %license %{_docdir}/%{name}/html/*.md
 
@@ -765,6 +732,9 @@ export %{rust_env}
 
 
 %changelog
+* Thu May 06 2021 Josh Stone <jistone@redhat.com> - 1.52.0-1
+- Update to 1.52.0.
+
 * Fri Apr 16 2021 Josh Stone <jistone@redhat.com> - 1.51.0-3
 - Security fixes for CVE-2020-36323, CVE-2021-31162
 

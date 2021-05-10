@@ -52,7 +52,7 @@
 %endif
 
 Name:           rust
-Version:        1.52.0
+Version:        1.52.1
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -170,6 +170,11 @@ Provides:       bundled(llvm) = 12.0.0
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm9.0
+%endif
+%if 0%{?fedora} == 34
+# aarch64 is hanging with LLVM 12-rc1, but it's fine with 12-final on rawhide.
+# Fall back to LLVM 11 on f34 for now...
+%global llvm llvm11
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -732,6 +737,9 @@ export %{rust_env}
 
 
 %changelog
+* Mon May 10 2021 Josh Stone <jistone@redhat.com> - 1.52.1-1
+- Update to 1.52.1.
+
 * Thu May 06 2021 Josh Stone <jistone@redhat.com> - 1.52.0-1
 - Update to 1.52.0.
 

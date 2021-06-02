@@ -53,7 +53,7 @@
 
 Name:           rust
 Version:        1.52.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -510,13 +510,6 @@ export %{rust_env}
 %define enable_debuginfo --debuginfo-level=2
 %endif
 
-# We want the best optimization for std, but it caused problems for rpm-ostree
-# on ppc64le to have all of the compiler_builtins in a single object:
-# https://bugzilla.redhat.com/show_bug.cgi?id=1713090
-%ifnarch %{power64}
-%define codegen_units_std --set rust.codegen-units-std=1
-%endif
-
 # Some builders have relatively little memory for their CPU count.
 # At least 2GB per CPU is a good rule of thumb for building rustc.
 ncpus=$(/usr/bin/getconf _NPROCESSORS_ONLN)
@@ -535,6 +528,7 @@ fi
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
   --disable-rpath \
   %{enable_debuginfo} \
+  --set rust.codegen-units-std=1 \
   --enable-extended \
   --tools=analysis,cargo,clippy,rls,rustfmt,src \
   --enable-vendor \
@@ -737,6 +731,9 @@ export %{rust_env}
 
 
 %changelog
+* Wed Jun 02 2021 Josh Stone <jistone@redhat.com> - 1.52.1-2
+- Set rust.codegen-units-std=1 for all targets again.
+
 * Mon May 10 2021 Josh Stone <jistone@redhat.com> - 1.52.1-1
 - Update to 1.52.1.
 

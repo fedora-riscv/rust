@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.51.0
-%global bootstrap_cargo 1.51.0
-%global bootstrap_channel 1.51.0
-%global bootstrap_date 2021-03-25
+%global bootstrap_rust 1.52.0
+%global bootstrap_cargo 1.52.0
+%global bootstrap_channel 1.52.0
+%global bootstrap_date 2021-05-06
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -30,7 +30,7 @@
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 9.0+.
+# is insufficient.  Rust currently requires LLVM 10.0+.
 %bcond_with bundled_llvm
 
 # Requires stable libgit2 1.1
@@ -61,8 +61,8 @@
 %endif
 
 Name:           rust
-Version:        1.52.1
-Release:        2%{?dist}
+Version:        1.53.0~beta.3
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -90,7 +90,7 @@ Patch100:       rustc-1.48.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.51.0-disable-http2.patch
+Patch101:       rustc-1.53.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -181,7 +181,7 @@ Provides:       bundled(llvm) = 12.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
-%global llvm llvm9.0
+%global llvm llvm11.0
 %endif
 %if 0%{?fedora} == 34
 # aarch64 is hanging with LLVM 12-rc1, but it's fine with 12-final on rawhide.
@@ -194,7 +194,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 9.0
+BuildRequires:  %{llvm}-devel >= 10.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -809,6 +809,9 @@ end}
 
 
 %changelog
+* Fri Jun 04 2021 Josh Stone <jistone@redhat.com> - 1.53.0~beta.3-1
+- beta test
+
 * Wed Jun 02 2021 Josh Stone <jistone@redhat.com> - 1.52.1-2
 - Set rust.codegen-units-std=1 for all targets again.
 - Add rust-std-static-wasm32-unknown-unknown.

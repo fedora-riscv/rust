@@ -183,11 +183,6 @@ BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm11.0
 %endif
-%if 0%{?fedora} == 34
-# aarch64 is hanging with LLVM 12-rc1, but it's fine with 12-final on rawhide.
-# Fall back to LLVM 11 on f34 for now...
-%global llvm llvm11
-%endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
 %else
@@ -815,6 +810,7 @@ end}
 * Wed Jun 02 2021 Josh Stone <jistone@redhat.com> - 1.52.1-2
 - Set rust.codegen-units-std=1 for all targets again.
 - Add rust-std-static-wasm32-unknown-unknown.
+- Rebuild f34 with LLVM 12.
 
 * Mon May 10 2021 Josh Stone <jistone@redhat.com> - 1.52.1-1
 - Update to 1.52.1.

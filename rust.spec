@@ -181,7 +181,7 @@ Provides:       bundled(llvm) = 12.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
-%global llvm llvm11.0
+%global llvm llvm11
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -213,6 +213,14 @@ Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
 # invoke the linker directly, and then we'll only need binutils.
 # https://github.com/rust-lang/rust/issues/11937
 Requires:       /usr/bin/cc
+
+%if 0%{?epel} == 7
+%global devtoolset_name devtoolset-9
+BuildRequires:  %{devtoolset_name}-gcc
+BuildRequires:  %{devtoolset_name}-gcc-c++
+%global __cc /opt/rh/%{devtoolset_name}/root/usr/bin/gcc
+%global __cxx /opt/rh/%{devtoolset_name}/root/usr/bin/g++
+%endif
 
 # ALL Rust libraries are private, because they don't keep an ABI.
 %global _privatelibs lib(.*-[[:xdigit:]]{16}*|rustc.*)[.]so.*
@@ -563,6 +571,9 @@ fi
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
+  --set target.%{rust_triple}.linker=%{__cc} \
+  --set target.%{rust_triple}.cc=%{__cc} \
+  --set target.%{rust_triple}.cxx=%{__cxx} \
   --python=%{python} \
   --local-rust-root=%{local_rust_root} \
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \

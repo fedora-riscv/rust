@@ -9,19 +9,28 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.51.0
-%global bootstrap_cargo 1.51.0
-%global bootstrap_channel 1.51.0
-%global bootstrap_date 2021-03-25
+%global bootstrap_rust 1.52.0
+%global bootstrap_cargo 1.52.0
+%global bootstrap_channel 1.52.0
+%global bootstrap_date 2021-05-06
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
+
+# Define a space-separated list of targets to ship rust-std-static-$triple for
+# cross-compilation. The packages are noarch, but they're not fully
+# reproducible between hosts, so only x86_64 actually builds it.
+%ifarch x86_64
+%if 0%{?fedora}
+%global cross_targets wasm32-unknown-unknown
+%endif
+%endif
 
 # Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
 
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
-# is insufficient.  Rust currently requires LLVM 9.0+.
+# is insufficient.  Rust currently requires LLVM 10.0+.
 %bcond_with bundled_llvm
 
 # Requires stable libgit2 1.1
@@ -52,7 +61,7 @@
 %endif
 
 Name:           rust
-Version:        1.52.1
+Version:        1.53.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -71,6 +80,9 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 # https://github.com/rust-lang/rust/issues/80810#issuecomment-781784032
 Patch1:         0001-Revert-Auto-merge-of-79547.patch
 
+# By default, rust tries to use "rust-lld" as a linker for WebAssembly.
+Patch2:         0001-Use-lld-provided-by-system-for-wasm.patch
+
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
@@ -78,7 +90,7 @@ Patch100:       rustc-1.48.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.51.0-disable-http2.patch
+Patch101:       rustc-1.53.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -169,11 +181,6 @@ Provides:       bundled(llvm) = 12.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
-%global llvm llvm9.0
-%endif
-%if 0%{?fedora} == 34
-# aarch64 is hanging with LLVM 12-rc1, but it's fine with 12-final on rawhide.
-# Fall back to LLVM 11 on f34 for now...
 %global llvm llvm11
 %endif
 %if %defined llvm
@@ -182,7 +189,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm
 %global llvm_root %{_prefix}
 %endif
-BuildRequires:  %{llvm}-devel >= 9.0
+BuildRequires:  %{llvm}-devel >= 10.0
 %if %with llvm_static
 BuildRequires:  %{llvm}-static
 BuildRequires:  libffi-devel
@@ -206,6 +213,14 @@ Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
 # invoke the linker directly, and then we'll only need binutils.
 # https://github.com/rust-lang/rust/issues/11937
 Requires:       /usr/bin/cc
+
+%if 0%{?epel} == 7
+%global devtoolset_name devtoolset-9
+BuildRequires:  %{devtoolset_name}-gcc
+BuildRequires:  %{devtoolset_name}-gcc-c++
+%global __cc /opt/rh/%{devtoolset_name}/root/usr/bin/gcc
+%global __cxx /opt/rh/%{devtoolset_name}/root/usr/bin/g++
+%endif
 
 # ALL Rust libraries are private, because they don't keep an ABI.
 %global _privatelibs lib(.*-[[:xdigit:]]{16}*|rustc.*)[.]so.*
@@ -235,6 +250,19 @@ Requires:       /usr/bin/cc
 %endif
 %endif
 
+# We're going to override --libdir when configuring to get rustlib into a
+# common path, but we'll fix the shared libraries during install.
+%global common_libdir %{_prefix}/lib
+%global rustlibdir %{common_libdir}/rustlib
+
+%if %defined cross_targets
+# brp-strip-static-archive breaks the archive index for wasm
+%global __os_install_post \
+%__os_install_post \
+find %{buildroot}%{rustlibdir} -type f -path '*/wasm*/lib/*.rlib' -exec ranlib '{}' ';' \
+%{nil}
+%endif
+
 %description
 Rust is a systems programming language that runs blazingly fast, prevents
 segfaults, and guarantees thread safety.
@@ -248,6 +276,32 @@ Summary:        Standard library for Rust
 %description std-static
 This package includes the standard libraries for building applications
 written in Rust.
+
+%if %defined cross_targets
+%{lua: do
+  for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
+    local requires = rpm.expand("Requires: rust = %{version}-%{release}")
+    if string.sub(triple, 1, 4) == "wasm" then
+      requires = requires .. "\nRequires: lld >= 8.0"
+    end
+    local subs = {
+      triple = triple,
+      requires = requires,
+    }
+    local s = string.gsub([[
+%package std-static-{{triple}}
+Summary:        Standard library for Rust
+BuildArch:      noarch
+{{requires}}
+
+%description std-static-{{triple}}
+This package includes the standard libraries for building applications
+written in Rust for the {{triple}} target.
+]], "{{(%w+)}}", subs)
+    print(s)
+  end
+end}
+%endif
 
 
 %package debugger-common
@@ -406,6 +460,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
+%patch2 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -491,11 +546,6 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 %build
 export %{rust_env}
 
-# We're going to override --libdir when configuring to get rustlib into a
-# common path, but we'll fix the shared libraries during install.
-%global common_libdir %{_prefix}/lib
-%global rustlibdir %{common_libdir}/rustlib
-
 %ifarch %{arm} %{ix86} s390x
 # full debuginfo is exhausting memory; just do libstd for now
 # https://github.com/rust-lang/rust/issues/45854
@@ -510,13 +560,6 @@ export %{rust_env}
 %define enable_debuginfo --debuginfo-level=2
 %endif
 
-# We want the best optimization for std, but it caused problems for rpm-ostree
-# on ppc64le to have all of the compiler_builtins in a single object:
-# https://bugzilla.redhat.com/show_bug.cgi?id=1713090
-%ifnarch %{power64}
-%define codegen_units_std --set rust.codegen-units-std=1
-%endif
-
 # Some builders have relatively little memory for their CPU count.
 # At least 2GB per CPU is a good rule of thumb for building rustc.
 ncpus=$(/usr/bin/getconf _NPROCESSORS_ONLN)
@@ -528,6 +571,9 @@ fi
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
+  --set target.%{rust_triple}.linker=%{__cc} \
+  --set target.%{rust_triple}.cc=%{__cc} \
+  --set target.%{rust_triple}.cxx=%{__cxx} \
   --python=%{python} \
   --local-rust-root=%{local_rust_root} \
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
@@ -535,6 +581,7 @@ fi
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
   --disable-rpath \
   %{enable_debuginfo} \
+  --set rust.codegen-units-std=1 \
   --enable-extended \
   --tools=analysis,cargo,clippy,rls,rustfmt,src \
   --enable-vendor \
@@ -546,11 +593,22 @@ fi
 %{python} ./x.py build -j "$ncpus" --stage 2
 %{python} ./x.py doc --stage 2
 
+%if %defined cross_targets
+for triple in %{cross_targets}; do
+  %{python} ./x.py build --stage 2 --target=$triple std
+done
+%endif
 
 %install
 export %{rust_env}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
+
+%if %defined cross_targets
+for triple in %{cross_targets}; do
+  DESTDIR=%{buildroot} %{python} ./x.py install --target=$triple std
+done
+%endif
 
 # Make sure the shared libraries are in the proper libdir
 %if "%{_libdir}" != "%{common_libdir}"
@@ -654,6 +712,26 @@ export %{rust_env}
 %{rustlibdir}/%{rust_triple}/lib/*.rlib
 
 
+%if %defined cross_targets
+%{lua: do
+  for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
+    local subs = {
+      triple = triple,
+      rustlibdir = rpm.expand("%{rustlibdir}"),
+    }
+    local s = string.gsub([[
+%files std-static-{{triple}}
+%dir {{rustlibdir}}
+%dir {{rustlibdir}}/{{triple}}
+%dir {{rustlibdir}}/{{triple}}/lib
+{{rustlibdir}}/{{triple}}/lib/*.rlib
+]], "{{(%w+)}}", subs)
+    print(s)
+  end
+end}
+%endif
+
+
 %files debugger-common
 %dir %{rustlibdir}
 %dir %{rustlibdir}/etc
@@ -737,6 +815,14 @@ export %{rust_env}
 
 
 %changelog
+* Thu Jun 17 2021 Josh Stone <jistone@redhat.com> - 1.53.0-1
+- Update to 1.53.0.
+
+* Wed Jun 02 2021 Josh Stone <jistone@redhat.com> - 1.52.1-2
+- Set rust.codegen-units-std=1 for all targets again.
+- Add rust-std-static-wasm32-unknown-unknown.
+- Rebuild f34 with LLVM 12.
+
 * Mon May 10 2021 Josh Stone <jistone@redhat.com> - 1.52.1-1
 - Update to 1.52.1.
 

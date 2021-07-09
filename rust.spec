@@ -62,7 +62,7 @@
 
 Name:           rust
 Version:        1.53.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -282,7 +282,7 @@ written in Rust.
   for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
     local requires = rpm.expand("Requires: rust = %{version}-%{release}")
     if string.sub(triple, 1, 4) == "wasm" then
-      requires = requires .. "\nRequires: lld >= 8.0"
+      requires = requires .. "\nRequires: lld >= 8.0\nExcludeArch: s390x"
     end
     local subs = {
       triple = triple,
@@ -815,6 +815,9 @@ end}
 
 
 %changelog
+* Thu Jul 08 2021 Josh Stone <jistone@redhat.com> - 1.53.0-2
+- Exclude wasm on s390x for lack of lld
+
 * Thu Jun 17 2021 Josh Stone <jistone@redhat.com> - 1.53.0-1
 - Update to 1.53.0.
 

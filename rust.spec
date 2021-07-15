@@ -282,7 +282,7 @@ written in Rust.
   for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
     local requires = rpm.expand("Requires: rust = %{version}-%{release}")
     if string.sub(triple, 1, 4) == "wasm" then
-      requires = requires .. "\nRequires: lld >= 8.0\nExcludeArch: s390x"
+      requires = requires .. "\nRequires: lld >= 8.0"
     end
     local subs = {
       triple = triple,

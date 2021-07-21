@@ -610,6 +610,9 @@ for triple in %{cross_targets}; do
 done
 %endif
 
+# These are transient files used by x.py dist and install
+rm -rf ./build/dist/ ./build/tmp/
+
 # Make sure the shared libraries are in the proper libdir
 %if "%{_libdir}" != "%{common_libdir}"
 mkdir -p %{buildroot}%{_libdir}
@@ -681,8 +684,13 @@ rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 export %{rust_env}
 
 # The results are not stable on koji, so mask errors and just log it.
+# Some of the larger test artifacts are manually cleaned to save space.
 %{python} ./x.py test --no-fail-fast --stage 2 || :
+rm -rf "./build/%{rust_triple}/test/"
+
 %{python} ./x.py test --no-fail-fast --stage 2 cargo || :
+rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
+
 %{python} ./x.py test --no-fail-fast --stage 2 clippy || :
 %{python} ./x.py test --no-fail-fast --stage 2 rls || :
 %{python} ./x.py test --no-fail-fast --stage 2 rustfmt || :

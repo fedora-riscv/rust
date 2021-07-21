@@ -61,8 +61,8 @@
 %endif
 
 Name:           rust
-Version:        1.53.0~beta.3
-Release:        1%{?dist}
+Version:        1.53.0
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -181,11 +181,6 @@ Provides:       bundled(llvm) = 12.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
-%global llvm llvm11.0
-%endif
-%if 0%{?fedora} == 34
-# aarch64 is hanging with LLVM 12-rc1, but it's fine with 12-final on rawhide.
-# Fall back to LLVM 11 on f34 for now...
 %global llvm llvm11
 %endif
 %if %defined llvm
@@ -218,6 +213,14 @@ Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
 # invoke the linker directly, and then we'll only need binutils.
 # https://github.com/rust-lang/rust/issues/11937
 Requires:       /usr/bin/cc
+
+%if 0%{?epel} == 7
+%global devtoolset_name devtoolset-9
+BuildRequires:  %{devtoolset_name}-gcc
+BuildRequires:  %{devtoolset_name}-gcc-c++
+%global __cc /opt/rh/%{devtoolset_name}/root/usr/bin/gcc
+%global __cxx /opt/rh/%{devtoolset_name}/root/usr/bin/g++
+%endif
 
 # ALL Rust libraries are private, because they don't keep an ABI.
 %global _privatelibs lib(.*-[[:xdigit:]]{16}*|rustc.*)[.]so.*
@@ -568,6 +571,9 @@ fi
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
+  --set target.%{rust_triple}.linker=%{__cc} \
+  --set target.%{rust_triple}.cc=%{__cc} \
+  --set target.%{rust_triple}.cxx=%{__cxx} \
   --python=%{python} \
   --local-rust-root=%{local_rust_root} \
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
@@ -603,6 +609,9 @@ for triple in %{cross_targets}; do
   DESTDIR=%{buildroot} %{python} ./x.py install --target=$triple std
 done
 %endif
+
+# These are transient files used by x.py dist and install
+rm -rf ./build/dist/ ./build/tmp/
 
 # Make sure the shared libraries are in the proper libdir
 %if "%{_libdir}" != "%{common_libdir}"
@@ -675,8 +684,13 @@ rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 export %{rust_env}
 
 # The results are not stable on koji, so mask errors and just log it.
+# Some of the larger test artifacts are manually cleaned to save space.
 %{python} ./x.py test --no-fail-fast --stage 2 || :
+rm -rf "./build/%{rust_triple}/test/"
+
 %{python} ./x.py test --no-fail-fast --stage 2 cargo || :
+rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
+
 %{python} ./x.py test --no-fail-fast --stage 2 clippy || :
 %{python} ./x.py test --no-fail-fast --stage 2 rls || :
 %{python} ./x.py test --no-fail-fast --stage 2 rustfmt || :
@@ -809,12 +823,16 @@ end}
 
 
 %changelog
-* Fri Jun 04 2021 Josh Stone <jistone@redhat.com> - 1.53.0~beta.3-1
-- beta test
+* Thu Jul 08 2021 Josh Stone <jistone@redhat.com> - 1.53.0-2
+- Exclude wasm on s390x for lack of lld
+
+* Thu Jun 17 2021 Josh Stone <jistone@redhat.com> - 1.53.0-1
+- Update to 1.53.0.
 
 * Wed Jun 02 2021 Josh Stone <jistone@redhat.com> - 1.52.1-2
 - Set rust.codegen-units-std=1 for all targets again.
 - Add rust-std-static-wasm32-unknown-unknown.
+- Rebuild f34 with LLVM 12.
 
 * Mon May 10 2021 Josh Stone <jistone@redhat.com> - 1.52.1-1
 - Update to 1.52.1.

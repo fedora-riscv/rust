@@ -62,7 +62,7 @@
 
 Name:           rust
 Version:        1.53.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -823,6 +823,9 @@ end}
 
 
 %changelog
+* Fri Jul 23 2021 Fedora Release Engineering <releng@fedoraproject.org> - 1.53.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_35_Mass_Rebuild
+
 * Thu Jul 08 2021 Josh Stone <jistone@redhat.com> - 1.53.0-2
 - Exclude wasm on s390x for lack of lld
 

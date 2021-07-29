@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.52.0
-%global bootstrap_cargo 1.52.0
-%global bootstrap_channel 1.52.0
-%global bootstrap_date 2021-05-06
+%global bootstrap_rust 1.53.0
+%global bootstrap_cargo 1.53.0
+%global bootstrap_channel 1.53.0
+%global bootstrap_date 2021-06-17
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -61,8 +61,8 @@
 %endif
 
 Name:           rust
-Version:        1.53.0
-Release:        3%{?dist}
+Version:        1.54.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -823,6 +823,9 @@ end}
 
 
 %changelog
+* Thu Jul 29 2021 Josh Stone <jistone@redhat.com> - 1.54.0-1
+- Update to 1.54.0.
+
 * Fri Jul 23 2021 Fedora Release Engineering <releng@fedoraproject.org> - 1.53.0-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_35_Mass_Rebuild
 

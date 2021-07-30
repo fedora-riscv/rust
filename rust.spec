@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.52.0
-%global bootstrap_cargo 1.52.0
-%global bootstrap_channel 1.52.0
-%global bootstrap_date 2021-05-06
+%global bootstrap_rust 1.53.0
+%global bootstrap_cargo 1.53.0
+%global bootstrap_channel 1.53.0
+%global bootstrap_date 2021-06-17
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -61,7 +61,7 @@
 %endif
 
 Name:           rust
-Version:        1.53.0
+Version:        1.54.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -610,6 +610,9 @@ for triple in %{cross_targets}; do
 done
 %endif
 
+# These are transient files used by x.py dist and install
+rm -rf ./build/dist/ ./build/tmp/
+
 # Make sure the shared libraries are in the proper libdir
 %if "%{_libdir}" != "%{common_libdir}"
 mkdir -p %{buildroot}%{_libdir}
@@ -681,8 +684,13 @@ rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 export %{rust_env}
 
 # The results are not stable on koji, so mask errors and just log it.
+# Some of the larger test artifacts are manually cleaned to save space.
 %{python} ./x.py test --no-fail-fast --stage 2 || :
+rm -rf "./build/%{rust_triple}/test/"
+
 %{python} ./x.py test --no-fail-fast --stage 2 cargo || :
+rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
+
 %{python} ./x.py test --no-fail-fast --stage 2 clippy || :
 %{python} ./x.py test --no-fail-fast --stage 2 rls || :
 %{python} ./x.py test --no-fail-fast --stage 2 rustfmt || :
@@ -815,6 +823,15 @@ end}
 
 
 %changelog
+* Thu Jul 29 2021 Josh Stone <jistone@redhat.com> - 1.54.0-1
+- Update to 1.54.0.
+
+* Fri Jul 23 2021 Fedora Release Engineering <releng@fedoraproject.org> - 1.53.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_35_Mass_Rebuild
+
+* Thu Jul 08 2021 Josh Stone <jistone@redhat.com> - 1.53.0-2
+- Exclude wasm on s390x for lack of lld
+
 * Thu Jun 17 2021 Josh Stone <jistone@redhat.com> - 1.53.0-1
 - Update to 1.53.0.
 

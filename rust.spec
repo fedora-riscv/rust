@@ -62,7 +62,7 @@
 
 Name:           rust
 Version:        1.54.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -182,6 +182,10 @@ Provides:       bundled(llvm) = 12.0.0
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm11
+%endif
+# Rust isn't ready for LLVM 13 yet
+%if 0%{?fedora} >= 35
+%global llvm llvm12
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -587,6 +591,7 @@ fi
   --enable-vendor \
   --enable-verbose-tests \
   %{?codegen_units_std} \
+  --dist-compression-formats=gz \
   --release-channel=%{channel} \
   --release-description="%{?fedora:Fedora }%{?rhel:Red Hat }%{version}-%{release}"
 
@@ -692,7 +697,10 @@ rm -rf "./build/%{rust_triple}/test/"
 rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
 
 %{python} ./x.py test --no-fail-fast --stage 2 clippy || :
+
+env RLS_TEST_WAIT_FOR_AGES=1 \
 %{python} ./x.py test --no-fail-fast --stage 2 rls || :
+
 %{python} ./x.py test --no-fail-fast --stage 2 rustfmt || :
 
 
@@ -823,6 +831,9 @@ end}
 
 
 %changelog
+* Tue Aug 24 2021 Josh Stone <jistone@redhat.com> - 1.54.0-2
+- Build with LLVM 12 on Fedora 35+
+
 * Thu Jul 29 2021 Josh Stone <jistone@redhat.com> - 1.54.0-1
 - Update to 1.54.0.
 

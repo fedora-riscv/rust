@@ -358,3 +358,11 @@
 /rust-1.53.0-powerpc64-unknown-linux-gnu.tar.xz
 /rust-1.53.0-s390x-unknown-linux-gnu.tar.xz
 /rust-1.53.0-x86_64-unknown-linux-gnu.tar.xz
+/rustc-1.55.0-src.tar.xz
+/rust-1.54.0-aarch64-unknown-linux-gnu.tar.xz
+/rust-1.54.0-armv7-unknown-linux-gnueabihf.tar.xz
+/rust-1.54.0-i686-unknown-linux-gnu.tar.xz
+/rust-1.54.0-powerpc64le-unknown-linux-gnu.tar.xz
+/rust-1.54.0-powerpc64-unknown-linux-gnu.tar.xz
+/rust-1.54.0-s390x-unknown-linux-gnu.tar.xz
+/rust-1.54.0-x86_64-unknown-linux-gnu.tar.xz

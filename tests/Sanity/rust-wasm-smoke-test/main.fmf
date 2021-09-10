@@ -1,0 +1,15 @@
+summary: Test that the rust wasm target is enabled and can compile correctly
+description: ''
+contact:
+  - Jesus Checa <jcheca@redhat.com>
+component:
+  - rust
+test: ./runtest.sh
+framework: beakerlib
+recommend:
+  - rust
+  - rust-std-static-wasm32-unknown-unknown
+  - nodejs
+duration: 5m
+extra-summary: /tools/rust/Sanity/rust-wasm-smoke-test
+extra-task: /tools/rust/Sanity/rust-wasm-smoke-test

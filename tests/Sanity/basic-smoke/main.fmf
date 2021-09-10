@@ -1,0 +1,13 @@
+summary: basic-smoke
+description: ''
+contact:
+  - Jesus Checa Hidalgo <jcheca@redhat.com>
+component:
+  - rust
+test: ./runtest.sh
+framework: beakerlib
+recommend:
+  - rust
+duration: 10m
+extra-summary: /tools/rust/Sanity/basic-smoke
+extra-task: /tools/rust/Sanity/basic-smoke

@@ -62,7 +62,7 @@
 
 Name:           rust
 Version:        1.55.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -831,6 +831,9 @@ end}
 
 
 %changelog
+* Tue Sep 14 2021 Sahana Prasad <sahana@redhat.com> - 1.55.0-2
+- Rebuilt with OpenSSL 3.0.0
+
 * Thu Sep 09 2021 Josh Stone <jistone@redhat.com> - 1.55.0-1
 - Update to 1.55.0.
 - Use llvm-ranlib for wasm rlibs; Fixes rhbz#2002612

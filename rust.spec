@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.53.0
-%global bootstrap_cargo 1.53.0
-%global bootstrap_channel 1.53.0
-%global bootstrap_date 2021-06-17
+%global bootstrap_rust 1.54.0
+%global bootstrap_cargo 1.54.0
+%global bootstrap_channel 1.54.0
+%global bootstrap_date 2021-07-29
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -61,8 +61,8 @@
 %endif
 
 Name:           rust
-Version:        1.54.0~beta.3
-Release:        1%{?dist}
+Version:        1.55.0
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -90,7 +90,7 @@ Patch100:       rustc-1.48.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.53.0-disable-http2.patch
+Patch101:       rustc-1.55.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -177,11 +177,15 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.13.4
-Provides:       bundled(llvm) = 12.0.0
+Provides:       bundled(llvm) = 12.0.1
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm11
+%endif
+# Rust isn't ready for LLVM 13 yet
+%if 0%{?fedora} >= 35
+%global llvm llvm12
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -259,7 +263,7 @@ BuildRequires:  %{devtoolset_name}-gcc-c++
 # brp-strip-static-archive breaks the archive index for wasm
 %global __os_install_post \
 %__os_install_post \
-find %{buildroot}%{rustlibdir} -type f -path '*/wasm*/lib/*.rlib' -exec ranlib '{}' ';' \
+find '%{buildroot}%{rustlibdir}' -type f -path '*/wasm*/lib/*.rlib' -print -exec '%{llvm_root}/bin/llvm-ranlib' '{}' ';' \
 %{nil}
 %endif
 
@@ -587,6 +591,7 @@ fi
   --enable-vendor \
   --enable-verbose-tests \
   %{?codegen_units_std} \
+  --dist-compression-formats=gz \
   --release-channel=%{channel} \
   --release-description="%{?fedora:Fedora }%{?rhel:Red Hat }%{version}-%{release}"
 
@@ -692,7 +697,10 @@ rm -rf "./build/%{rust_triple}/test/"
 rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
 
 %{python} ./x.py test --no-fail-fast --stage 2 clippy || :
+
+env RLS_TEST_WAIT_FOR_AGES=1 \
 %{python} ./x.py test --no-fail-fast --stage 2 rls || :
+
 %{python} ./x.py test --no-fail-fast --stage 2 rustfmt || :
 
 
@@ -823,8 +831,21 @@ end}
 
 
 %changelog
-* Wed Jul 21 2021 Josh Stone <jistone@redhat.com> - 1.54.0~beta.3-1
-- beta test
+* Tue Sep 14 2021 Sahana Prasad <sahana@redhat.com> - 1.55.0-2
+- Rebuilt with OpenSSL 3.0.0
+
+* Thu Sep 09 2021 Josh Stone <jistone@redhat.com> - 1.55.0-1
+- Update to 1.55.0.
+- Use llvm-ranlib for wasm rlibs; Fixes rhbz#2002612
+
+* Tue Aug 24 2021 Josh Stone <jistone@redhat.com> - 1.54.0-2
+- Build with LLVM 12 on Fedora 35+
+
+* Thu Jul 29 2021 Josh Stone <jistone@redhat.com> - 1.54.0-1
+- Update to 1.54.0.
+
+* Fri Jul 23 2021 Fedora Release Engineering <releng@fedoraproject.org> - 1.53.0-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_35_Mass_Rebuild
 
 * Thu Jul 08 2021 Josh Stone <jistone@redhat.com> - 1.53.0-2
 - Exclude wasm on s390x for lack of lld

@@ -61,8 +61,8 @@
 %endif
 
 Name:           rust
-Version:        1.55.0
-Release:        2%{?dist}
+Version:        1.56.0~beta.3
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -177,14 +177,15 @@ BuildRequires:  %{python}
 
 %if %with bundled_llvm
 BuildRequires:  cmake3 >= 3.13.4
-Provides:       bundled(llvm) = 12.0.1
+BuildRequires:  ninja-build
+Provides:       bundled(llvm) = 13.0.0
 %else
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm11
 %endif
 # Rust isn't ready for LLVM 13 yet
-%if 0%{?fedora} >= 35
+%if 0 && 0%{?fedora} >= 35
 %global llvm llvm12
 %endif
 %if %defined llvm
@@ -831,6 +832,9 @@ end}
 
 
 %changelog
+* Mon Sep 20 2021 Josh Stone <jistone@redhat.com> - 1.56.0~beta.3-1
+- beta test
+
 * Tue Sep 14 2021 Sahana Prasad <sahana@redhat.com> - 1.55.0-2
 - Rebuilt with OpenSSL 3.0.0
 

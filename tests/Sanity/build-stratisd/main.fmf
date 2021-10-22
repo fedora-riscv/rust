@@ -1,0 +1,17 @@
+summary: rpmbuild stratisd
+description:
+  - 'Ensure that rust does not break stratisd rpmbuild'
+contact:
+  - Jesus Checa Hidalgo <jcheca@redhat.com>
+component:
+  - rust
+test: ./runtest.sh
+framework: beakerlib
+recommend:
+  - rust
+  - rpm-build
+  - yum-utils
+  - stratisd
+duration: 1h
+extra-summary: /tools/rust/Sanity/build-stratisd
+extra-task: /tools/rust/Sanity/build-stratisd

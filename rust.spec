@@ -15,7 +15,7 @@
 %global bootstrap_date 2021-09-09
 
 # Only the specified arches will use bootstrap binaries.
-%global bootstrap_arches %%{rust_arches}
+#global bootstrap_arches %%{rust_arches}
 
 # Define a space-separated list of targets to ship rust-std-static-$triple for
 # cross-compilation. The packages are noarch, but they're not fully
@@ -62,7 +62,7 @@
 
 Name:           rust
 Version:        1.56.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -837,6 +837,9 @@ end}
 
 
 %changelog
+* Sun Nov 28 2021 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.56.1-3
+- De-bootstrap (libgit2)
+
 * Sun Nov 28 2021 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.56.1-2
 - Rebuild for libgit2 1.3.x
 

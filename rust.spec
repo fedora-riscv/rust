@@ -62,7 +62,7 @@
 
 Name:           rust
 Version:        1.56.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -164,7 +164,7 @@ BuildRequires:  pkgconfig(liblzma)
 BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(zlib)
 
-%if %without bundled_libgit2
+%if %{without bundled_libgit2}
 BuildRequires:  pkgconfig(libgit2) >= 1.1.0
 %endif
 
@@ -837,6 +837,9 @@ end}
 
 
 %changelog
+* Sun Nov 28 2021 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.56.1-2
+- Rebuild for libgit2 1.3.x
+
 * Mon Nov 01 2021 Josh Stone <jistone@redhat.com> - 1.56.1-1
 - Update to 1.56.1.
 

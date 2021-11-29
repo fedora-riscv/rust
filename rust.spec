@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.54.0
-%global bootstrap_cargo 1.54.0
-%global bootstrap_channel 1.54.0
-%global bootstrap_date 2021-07-29
+%global bootstrap_rust 1.55.0
+%global bootstrap_cargo 1.55.0
+%global bootstrap_channel 1.55.0
+%global bootstrap_date 2021-09-09
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -61,8 +61,8 @@
 %endif
 
 Name:           rust
-Version:        1.56.0~beta.3
-Release:        1%{?dist}
+Version:        1.56.1
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -76,7 +76,8 @@ ExclusiveArch:  %{rust_arches}
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 
-# This internal rust-abi change broke s390x -- revert for now.
+# An internal rust-abi change broke s390x, but it's fixed in LLVM 12.0.1.
+# We'll revert the change on Fedora 33 that has an unpatched LLVM 11.
 # https://github.com/rust-lang/rust/issues/80810#issuecomment-781784032
 Patch1:         0001-Revert-Auto-merge-of-79547.patch
 
@@ -86,11 +87,11 @@ Patch2:         0001-Use-lld-provided-by-system-for-wasm.patch
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
-Patch100:       rustc-1.48.0-disable-libssh2.patch
+Patch100:       rustc-1.56.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.55.0-disable-http2.patch
+Patch101:       rustc-1.56.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -163,7 +164,7 @@ BuildRequires:  pkgconfig(liblzma)
 BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(zlib)
 
-%if %without bundled_libgit2
+%if %{without bundled_libgit2}
 BuildRequires:  pkgconfig(libgit2) >= 1.1.0
 %endif
 
@@ -184,8 +185,8 @@ BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm11
 %endif
-# Rust isn't ready for LLVM 13 yet
-%if 0 && 0%{?fedora} >= 35
+%if 0%{?fedora} == 35
+# f35 still only has 13.0.0~rc1
 %global llvm llvm12
 %endif
 %if %defined llvm
@@ -464,7 +465,11 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %setup -q -n %{rustc_package}
 
+%if 0%{?fedora} == 33
+# revert only for LLVM 11
 %patch1 -p1
+%endif
+
 %patch2 -p1
 
 %if %with disabled_libssh2
@@ -832,8 +837,17 @@ end}
 
 
 %changelog
-* Mon Sep 20 2021 Josh Stone <jistone@redhat.com> - 1.56.0~beta.3-1
-- beta test
+* Sun Nov 28 2021 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.56.1-3
+- De-bootstrap (libgit2)
+
+* Sun Nov 28 2021 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.56.1-2
+- Rebuild for libgit2 1.3.x
+
+* Mon Nov 01 2021 Josh Stone <jistone@redhat.com> - 1.56.1-1
+- Update to 1.56.1.
+
+* Thu Oct 21 2021 Josh Stone <jistone@redhat.com> - 1.56.0-1
+- Update to 1.56.0.
 
 * Tue Sep 14 2021 Sahana Prasad <sahana@redhat.com> - 1.55.0-2
 - Rebuilt with OpenSSL 3.0.0

@@ -1,5 +1,5 @@
---- rustc-1.55.0-src/Cargo.lock.orig	2021-09-07 16:33:21.672163689 -0700
-+++ rustc-1.55.0-src/Cargo.lock	2021-09-07 16:33:21.673163668 -0700
+--- rustc-1.56.0-src/Cargo.lock.orig	2021-10-19 18:03:53.928187581 -0700
++++ rustc-1.56.0-src/Cargo.lock	2021-10-19 18:05:41.443522980 -0700
 @@ -877,7 +877,6 @@
  dependencies = [
   "cc",
@@ -23,21 +23,21 @@
 -
 -[[package]]
  name = "libz-sys"
- version = "1.1.2"
+ version = "1.1.3"
  source = "registry+https://github.com/rust-lang/crates.io-index"
---- rustc-1.55.0-src/src/tools/cargo/Cargo.toml.orig	2021-09-07 16:33:21.673163668 -0700
-+++ rustc-1.55.0-src/src/tools/cargo/Cargo.toml	2021-09-07 16:34:59.637068004 -0700
+--- rustc-1.56.0-src/src/tools/cargo/Cargo.toml.orig	2021-10-19 18:03:53.930187532 -0700
++++ rustc-1.56.0-src/src/tools/cargo/Cargo.toml	2021-10-19 18:05:13.663211469 -0700
 @@ -25,7 +25,7 @@
  cargo-util = { path = "crates/cargo-util", version = "0.1.1" }
  crates-io = { path = "crates/crates-io", version = "0.33.0" }
  crossbeam-utils = "0.8"
 -curl = { version = "0.4.38", features = ["http2"] }
 +curl = { version = "0.4.38", features = [] }
- curl-sys = "0.4.45"
+ curl-sys = "0.4.48"
  env_logger = "0.9.0"
  pretty_env_logger = { version = "0.4", optional = true }
---- rustc-1.55.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2021-09-06 11:42:51.000000000 -0700
-+++ rustc-1.55.0-src/src/tools/cargo/src/cargo/core/package.rs	2021-09-07 16:33:21.674163646 -0700
+--- rustc-1.56.0-src/src/tools/cargo/src/cargo/core/package.rs.orig	2021-10-18 02:52:56.000000000 -0700
++++ rustc-1.56.0-src/src/tools/cargo/src/cargo/core/package.rs	2021-10-19 18:03:53.931187507 -0700
 @@ -417,14 +417,8 @@
          // Also note that pipelining is disabled as curl authors have indicated
          // that it's buggy, and we've empirically seen that it's buggy with HTTP
@@ -55,7 +55,7 @@
  
          Ok(PackageSet {
              packages: package_ids
-@@ -597,7 +591,7 @@
+@@ -653,7 +647,7 @@
  macro_rules! try_old_curl {
      ($e:expr, $msg:expr) => {
          let result = $e;

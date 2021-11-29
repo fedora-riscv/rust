@@ -1,0 +1,18 @@
+summary: rpmbuild librsvg2
+description:
+  - 'Ensure that rust does not break librsvg2 rpmbuild'
+contact:
+  - Jesus Checa Hidalgo <jcheca@redhat.com>
+component:
+  - rust
+test: ./runtest.sh
+framework: beakerlib
+recommend:
+  - rust
+  - rpm-build
+  - yum-utils
+  - librsvg2
+  - git
+duration: 1h
+extra-summary: /tools/rust/Sanity/rpmbuild-librsvg2
+extra-task: /tools/rust/Sanity/rpmbuild-librsvg2

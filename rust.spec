@@ -1,6 +1,6 @@
 # Only x86_64 and i686 are Tier 1 platforms at this time.
 # https://doc.rust-lang.org/nightly/rustc/platform-support.html
-%global rust_arches x86_64 i686 armv7hl aarch64 ppc64 ppc64le s390x
+%global rust_arches x86_64 i686 armv7hl aarch64 ppc64le s390x
 
 # The channel can be stable, beta, or nightly
 %{!?channel: %global channel stable}
@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.55.0
-%global bootstrap_cargo 1.55.0
-%global bootstrap_channel 1.55.0
-%global bootstrap_date 2021-09-09
+%global bootstrap_rust 1.56.1
+%global bootstrap_cargo 1.56.1
+%global bootstrap_channel 1.56.1
+%global bootstrap_date 2021-11-01
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -22,9 +22,18 @@
 # reproducible between hosts, so only x86_64 actually builds it.
 %ifarch x86_64
 %if 0%{?fedora}
-%global cross_targets wasm32-unknown-unknown
+%global cross_targets wasm32-unknown-unknown wasm32-wasi
 %endif
 %endif
+
+# We need CRT files for *-wasi targets, at least as new as the commit in
+# src/ci/docker/host-x86_64/dist-various-2/build-wasi-toolchain.sh
+%global forgeurl1 https://github.com/WebAssembly/wasi-libc
+%global commit1 ad5133410f66b93a2381db5b542aad5e0964db96
+%forgemeta -z 1
+%undefine distprefix1
+%global wasi_libc_source %{forgesource1}
+%global wasi_libc_dir %{_builddir}/%{extractdir1}
 
 # Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
@@ -33,8 +42,8 @@
 # is insufficient.  Rust currently requires LLVM 10.0+.
 %bcond_with bundled_llvm
 
-# Requires stable libgit2 1.1
-%if 0%{?fedora} >= 34
+# Requires stable libgit2 1.3
+%if 0%{?fedora} >= 36
 %bcond_with bundled_libgit2
 %else
 %bcond_without bundled_libgit2
@@ -61,8 +70,8 @@
 %endif
 
 Name:           rust
-Version:        1.56.1
-Release:        3%{?dist}
+Version:        1.57.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -75,11 +84,12 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
+Source1:        %{wasi_libc_source}
+# Sources for bootstrap_arches are inserted by lua below
 
-# An internal rust-abi change broke s390x, but it's fixed in LLVM 12.0.1.
-# We'll revert the change on Fedora 33 that has an unpatched LLVM 11.
-# https://github.com/rust-lang/rust/issues/80810#issuecomment-781784032
-Patch1:         0001-Revert-Auto-merge-of-79547.patch
+# Fix a bad typecast for LLVM globals, rhbz#1990657
+# https://github.com/rust-lang/rust/pull/91070
+Patch1:         rust-pr91070.patch
 
 # By default, rust tries to use "rust-lld" as a linker for WebAssembly.
 Patch2:         0001-Use-lld-provided-by-system-for-wasm.patch
@@ -91,11 +101,11 @@ Patch100:       rustc-1.56.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.56.0-disable-http2.patch
+Patch101:       rustc-1.57.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
-Patch102:       rustc-1.51.0-no-default-pie.patch
+Patch102:       rustc-1.57.0-no-default-pie.patch
 
 
 # Get the Rust triple for any arch.
@@ -128,6 +138,7 @@ end}
                           .."/rust-%{bootstrap_channel}")
   local target_arch = rpm.expand("%{_target_cpu}")
   for i, arch in ipairs(bootstrap_arches) do
+    i = 100 + i
     print(string.format("Source%d: %s-%s.tar.xz\n",
                         i, base, rust_triple(arch)))
     if arch == target_arch then
@@ -165,7 +176,7 @@ BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(zlib)
 
 %if %{without bundled_libgit2}
-BuildRequires:  pkgconfig(libgit2) >= 1.1.0
+BuildRequires:  pkgconfig(libgit2) >= 1.3.0
 %endif
 
 %if %{without disabled_libssh2}
@@ -184,10 +195,6 @@ Provides:       bundled(llvm) = 13.0.0
 BuildRequires:  cmake >= 2.8.11
 %if 0%{?epel} == 7
 %global llvm llvm11
-%endif
-%if 0%{?fedora} == 35
-# f35 still only has 13.0.0~rc1
-%global llvm llvm12
 %endif
 %if %defined llvm
 %global llvm_root %{_libdir}/%{llvm}
@@ -262,6 +269,7 @@ BuildRequires:  %{devtoolset_name}-gcc-c++
 %global rustlibdir %{common_libdir}/rustlib
 
 %if %defined cross_targets
+BuildRequires:  clang
 # brp-strip-static-archive breaks the archive index for wasm
 %global __os_install_post \
 %__os_install_post \
@@ -286,23 +294,29 @@ written in Rust.
 %if %defined cross_targets
 %{lua: do
   for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
-    local requires = rpm.expand("Requires: rust = %{version}-%{release}")
-    if string.sub(triple, 1, 4) == "wasm" then
-      requires = requires .. "\nRequires: lld >= 8.0"
-    end
     local subs = {
       triple = triple,
-      requires = requires,
+      verrel = rpm.expand("%{version}-%{release}"),
+      wasm = string.sub(triple, 1, 4) == "wasm" and 1 or 0,
+      wasi = string.find(triple, "-wasi") and 1 or 0,
     }
     local s = string.gsub([[
+
 %package std-static-{{triple}}
 Summary:        Standard library for Rust
 BuildArch:      noarch
-{{requires}}
+Requires:       rust = {{verrel}}
+%if {{wasm}}
+Requires:       lld >= 8.0
+%endif
+%if {{wasi}}
+Provides:       bundled(wasi-libc)
+%endif
 
 %description std-static-{{triple}}
 This package includes the standard libraries for building applications
 written in Rust for the {{triple}} target.
+
 ]], "{{(%w+)}}", subs)
     print(s)
   end
@@ -360,7 +374,7 @@ its standard library.
 %package -n cargo
 Summary:        Rust's package manager and build tool
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 1.1.0
+Provides:       bundled(libgit2) = 1.3.0
 %endif
 # For tests:
 BuildRequires:  git
@@ -403,7 +417,7 @@ A tool for formatting Rust code according to style guidelines.
 %package -n rls
 Summary:        Rust Language Server for IDE integration
 %if %with bundled_libgit2
-Provides:       bundled(libgit2) = 1.1.0
+Provides:       bundled(libgit2) = 1.3.0
 %endif
 Requires:       rust-analysis
 # /usr/bin/rls is dynamically linked against internal rustc libs
@@ -463,13 +477,13 @@ test -f '%{local_rust_root}/bin/cargo'
 test -f '%{local_rust_root}/bin/rustc'
 %endif
 
-%setup -q -n %{rustc_package}
-
-%if 0%{?fedora} == 33
-# revert only for LLVM 11
-%patch1 -p1
+%if %defined cross_targets
+%forgesetup -z 1
 %endif
 
+%setup -q -n %{rustc_package}
+
+%patch1 -p1
 %patch2 -p1
 
 %if %with disabled_libssh2
@@ -543,10 +557,6 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 %if 0%{?cmake_path:1}
 %global rust_env %{rust_env} PATH="%{cmake_path}:$PATH"
 %endif
-%if %without bundled_libgit2
-# convince libgit2-sys to use the distro libgit2
-%global rust_env %{rust_env} LIBGIT2_SYS_USE_PKG_CONFIG=1
-%endif
 %if %without disabled_libssh2
 # convince libssh2-sys to use the distro libssh2
 %global rust_env %{rust_env} LIBSSH2_SYS_USE_PKG_CONFIG=1
@@ -578,6 +588,22 @@ if [ "$max_cpus" -ge 1 -a "$max_cpus" -lt "$ncpus" ]; then
   ncpus="$max_cpus"
 fi
 
+%if %defined cross_targets
+%make_build -C %{wasi_libc_dir}
+%{lua: do
+  local wasi_root = rpm.expand("%{wasi_libc_dir}") .. "/sysroot"
+  local set_wasi_root = ""
+  for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
+    if string.find(triple, "-wasi") then
+      set_wasi_root = set_wasi_root .. " --set target." .. triple .. ".wasi-root=" .. wasi_root
+    end
+  end
+  if wasi_root ~= "" then
+    rpm.define("set_wasi_root "..set_wasi_root)
+  end
+end}
+%endif
+
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
@@ -596,7 +622,7 @@ fi
   --tools=analysis,cargo,clippy,rls,rustfmt,src \
   --enable-vendor \
   --enable-verbose-tests \
-  %{?codegen_units_std} \
+  %{?set_wasi_root} \
   --dist-compression-formats=gz \
   --release-channel=%{channel} \
   --release-description="%{?fedora:Fedora }%{?rhel:Red Hat }%{version}-%{release}"
@@ -694,6 +720,12 @@ rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 %check
 export %{rust_env}
 
+# Sanity-check the installed binaries, debuginfo-stripped and all.
+%{buildroot}%{_bindir}/cargo new build/hello-world
+env RUSTC=%{buildroot}%{_bindir}/rustc \
+    LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
+    %{buildroot}%{_bindir}/cargo run --manifest-path build/hello-world/Cargo.toml
+
 # The results are not stable on koji, so mask errors and just log it.
 # Some of the larger test artifacts are manually cleaned to save space.
 %{python} ./x.py test --no-fail-fast --stage 2 || :
@@ -740,13 +772,20 @@ env RLS_TEST_WAIT_FOR_AGES=1 \
     local subs = {
       triple = triple,
       rustlibdir = rpm.expand("%{rustlibdir}"),
+      wasi = string.find(triple, "-wasi") and 1 or 0,
     }
     local s = string.gsub([[
+
 %files std-static-{{triple}}
 %dir {{rustlibdir}}
 %dir {{rustlibdir}}/{{triple}}
 %dir {{rustlibdir}}/{{triple}}/lib
 {{rustlibdir}}/{{triple}}/lib/*.rlib
+%if {{wasi}}
+%dir {{rustlibdir}}/{{triple}}/lib/self-contained
+{{rustlibdir}}/{{triple}}/lib/self-contained/crt*.o
+%endif
+
 ]], "{{(%w+)}}", subs)
     print(s)
   end
@@ -837,6 +876,11 @@ end}
 
 
 %changelog
+* Thu Dec 02 2021 Josh Stone <jistone@redhat.com> - 1.57.0-1
+- Update to 1.57.0, fixes rhbz#2028675.
+- Backport rust#91070, fixes rhbz#1990657
+- Add rust-std-static-wasm32-wasi
+
 * Sun Nov 28 2021 Igor Raits <ignatenkobrain@fedoraproject.org> - 1.56.1-3
 - De-bootstrap (libgit2)
 

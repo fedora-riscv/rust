@@ -375,3 +375,11 @@
 /rust-1.55.0-s390x-unknown-linux-gnu.tar.xz
 /rust-1.55.0-x86_64-unknown-linux-gnu.tar.xz
 /rustc-1.56.1-src.tar.xz
+/rustc-1.57.0-src.tar.xz
+/wasi-libc-ad5133410f66b93a2381db5b542aad5e0964db96.tar.gz
+/rust-1.56.1-aarch64-unknown-linux-gnu.tar.xz
+/rust-1.56.1-armv7-unknown-linux-gnueabihf.tar.xz
+/rust-1.56.1-i686-unknown-linux-gnu.tar.xz
+/rust-1.56.1-powerpc64le-unknown-linux-gnu.tar.xz
+/rust-1.56.1-s390x-unknown-linux-gnu.tar.xz
+/rust-1.56.1-x86_64-unknown-linux-gnu.tar.xz

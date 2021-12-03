@@ -17,13 +17,12 @@
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
 
+%if 0%{?fedora}
 # Define a space-separated list of targets to ship rust-std-static-$triple for
 # cross-compilation. The packages are noarch, but they're not fully
 # reproducible between hosts, so only x86_64 actually builds it.
 %ifarch x86_64
-%if 0%{?fedora}
 %global cross_targets wasm32-unknown-unknown wasm32-wasi
-%endif
 %endif
 
 # We need CRT files for *-wasi targets, at least as new as the commit in
@@ -34,6 +33,7 @@
 %undefine distprefix1
 %global wasi_libc_source %{forgesource1}
 %global wasi_libc_dir %{_builddir}/%{extractdir1}
+%endif
 
 # Using llvm-static may be helpful as an opt-in, e.g. to aid LLVM rebases.
 %bcond_with llvm_static
@@ -84,7 +84,11 @@ ExclusiveArch:  %{rust_arches}
 %global rustc_package rustc-%{channel}-src
 %endif
 Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
+
+%if 0%{?fedora}
 Source1:        %{wasi_libc_source}
+%endif
+
 # Sources for bootstrap_arches are inserted by lua below
 
 # Fix a bad typecast for LLVM globals, rhbz#1990657

@@ -22,7 +22,8 @@
 # reproducible between hosts, so only x86_64 actually builds it.
 %ifarch x86_64
 %if 0%{?fedora}
-%global cross_targets wasm32-unknown-unknown wasm32-wasi
+%global mingw_targets i686-pc-windows-gnu x86_64-pc-windows-gnu
+%global wasm_targets wasm32-unknown-unknown wasm32-wasi
 %endif
 %endif
 
@@ -71,7 +72,7 @@
 
 Name:           rust
 Version:        1.57.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -93,6 +94,10 @@ Patch1:         rust-pr91070.patch
 
 # By default, rust tries to use "rust-lld" as a linker for WebAssembly.
 Patch2:         0001-Use-lld-provided-by-system-for-wasm.patch
+
+# Fix a bootstrap warning with stage0 1.57
+# https://github.com/rust-lang/rust/pull/90042
+Patch3:         0001-remove-field-is-never-read-warning.patch
 
 ### RHEL-specific patches below ###
 
@@ -231,8 +236,14 @@ Requires:       /usr/bin/cc
 %global devtoolset_name devtoolset-9
 BuildRequires:  %{devtoolset_name}-gcc
 BuildRequires:  %{devtoolset_name}-gcc-c++
-%global __cc /opt/rh/%{devtoolset_name}/root/usr/bin/gcc
-%global __cxx /opt/rh/%{devtoolset_name}/root/usr/bin/g++
+%global devtoolset_bindir /opt/rh/%{devtoolset_name}/root/usr/bin
+%global __cc     %{devtoolset_bindir}/gcc
+%global __cxx    %{devtoolset_bindir}/g++
+%global __ar     %{devtoolset_bindir}/ar
+%global __ranlib %{devtoolset_bindir}/ranlib
+%global __strip  %{devtoolset_bindir}/strip
+%else
+%global __ranlib %{_bindir}/ranlib
 %endif
 
 # ALL Rust libraries are private, because they don't keep an ABI.
@@ -254,9 +265,6 @@ BuildRequires:  %{devtoolset_name}-gcc-c++
 %global _find_debuginfo_opts --keep-section .rustc
 %endif
 
-# Use hardening ldflags.
-%global rustflags -Clink-arg=-Wl,-z,relro,-z,now
-
 %if %{without bundled_llvm}
 %if "%{llvm_root}" == "%{_prefix}" || 0%{?scl:1}
 %global llvm_has_filecheck 1
@@ -268,7 +276,14 @@ BuildRequires:  %{devtoolset_name}-gcc-c++
 %global common_libdir %{_prefix}/lib
 %global rustlibdir %{common_libdir}/rustlib
 
-%if %defined cross_targets
+%if %defined mingw_targets
+BuildRequires:  mingw32-filesystem >= 95
+BuildRequires:  mingw64-filesystem >= 95
+BuildRequires:  mingw32-gcc
+BuildRequires:  mingw64-gcc
+%endif
+
+%if %defined wasm_targets
 BuildRequires:  clang
 # brp-strip-static-archive breaks the archive index for wasm
 %global __os_install_post \
@@ -286,36 +301,67 @@ This package includes the Rust compiler and documentation generator.
 
 %package std-static
 Summary:        Standard library for Rust
+Requires:       %{name} = %{version}-%{release}
+Requires:       glibc-devel%{?_isa} >= 2.11
 
 %description std-static
 This package includes the standard libraries for building applications
 written in Rust.
 
-%if %defined cross_targets
+%if %defined mingw_targets
 %{lua: do
-  for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
+  for triple in string.gmatch(rpm.expand("%{mingw_targets}"), "%S+") do
     local subs = {
       triple = triple,
+      name = rpm.expand("%{name}"),
       verrel = rpm.expand("%{version}-%{release}"),
-      wasm = string.sub(triple, 1, 4) == "wasm" and 1 or 0,
+      mingw = string.sub(triple, 1, 4) == "i686" and "mingw32" or "mingw64",
+    }
+    local s = string.gsub([[
+
+%package std-static-{{triple}}
+Summary:        Standard library for Rust {{triple}}
+BuildArch:      noarch
+Provides:       {{mingw}}-rust = {{verrel}}
+Provides:       {{mingw}}-rustc = {{verrel}}
+Requires:       {{mingw}}-crt
+Requires:       {{mingw}}-gcc
+Requires:       {{mingw}}-winpthreads-static
+Requires:       {{name}} = {{verrel}}
+
+%description std-static-{{triple}}
+This package includes the standard libraries for building applications
+written in Rust for the MinGW target {{triple}}.
+
+]], "{{(%w+)}}", subs)
+    print(s)
+  end
+end}
+%endif
+
+%if %defined wasm_targets
+%{lua: do
+  for triple in string.gmatch(rpm.expand("%{wasm_targets}"), "%S+") do
+    local subs = {
+      triple = triple,
+      name = rpm.expand("%{name}"),
+      verrel = rpm.expand("%{version}-%{release}"),
       wasi = string.find(triple, "-wasi") and 1 or 0,
     }
     local s = string.gsub([[
 
 %package std-static-{{triple}}
-Summary:        Standard library for Rust
+Summary:        Standard library for Rust {{triple}}
 BuildArch:      noarch
-Requires:       rust = {{verrel}}
-%if {{wasm}}
+Requires:       {{name}} = {{verrel}}
 Requires:       lld >= 8.0
-%endif
 %if {{wasi}}
 Provides:       bundled(wasi-libc)
 %endif
 
 %description std-static-{{triple}}
 This package includes the standard libraries for building applications
-written in Rust for the {{triple}} target.
+written in Rust for the WebAssembly target {{triple}}.
 
 ]], "{{(%w+)}}", subs)
     print(s)
@@ -477,7 +523,7 @@ test -f '%{local_rust_root}/bin/cargo'
 test -f '%{local_rust_root}/bin/rustc'
 %endif
 
-%if %defined cross_targets
+%if %defined wasm_targets
 %forgesetup -z 1
 %endif
 
@@ -485,6 +531,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -553,18 +600,19 @@ find vendor -name .cargo-checksum.json \
 find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 
 # Set up shared environment variables for build/install/check
-%global rust_env RUSTFLAGS="%{rustflags}"
+%global rust_env %{?rustflags:RUSTFLAGS="%{rustflags}"}
 %if 0%{?cmake_path:1}
-%global rust_env %{rust_env} PATH="%{cmake_path}:$PATH"
+%global rust_env %{?rust_env} PATH="%{cmake_path}:$PATH"
 %endif
 %if %without disabled_libssh2
 # convince libssh2-sys to use the distro libssh2
-%global rust_env %{rust_env} LIBSSH2_SYS_USE_PKG_CONFIG=1
+%global rust_env %{?rust_env} LIBSSH2_SYS_USE_PKG_CONFIG=1
 %endif
+%global export_rust_env %{?rust_env:export %{rust_env}}
 
 
 %build
-export %{rust_env}
+%{export_rust_env}
 
 %ifarch %{arm} %{ix86} s390x
 # full debuginfo is exhausting memory; just do libstd for now
@@ -588,28 +636,54 @@ if [ "$max_cpus" -ge 1 -a "$max_cpus" -lt "$ncpus" ]; then
   ncpus="$max_cpus"
 fi
 
-%if %defined cross_targets
-%make_build -C %{wasi_libc_dir}
+%define target_config %{shrink:
+  --set target.%{rust_triple}.linker=%{__cc}
+  --set target.%{rust_triple}.cc=%{__cc}
+  --set target.%{rust_triple}.cxx=%{__cxx}
+  --set target.%{rust_triple}.ar=%{__ar}
+  --set target.%{rust_triple}.ranlib=/usr/bin/ranlib
+}
+
+%if %defined mingw_targets
+%{lua: do
+  local cfg = ""
+  for triple in string.gmatch(rpm.expand("%{mingw_targets}"), "%S+") do
+    local subs = {
+      triple = triple,
+      mingw = string.sub(triple, 1, 4) == "i686" and "mingw32" or "mingw64",
+    }
+    local s = string.gsub([[%{shrink:
+      --set target.{{triple}}.linker=%{{{mingw}}_cc}
+      --set target.{{triple}}.cc=%{{{mingw}}_cc}
+      --set target.{{triple}}.ar=%{{{mingw}}_ar}
+      --set target.{{triple}}.ranlib=%{{{mingw}}_ranlib}
+    }]], "{{(%w+)}}", subs)
+    cfg = cfg .. " " .. s
+  end
+  rpm.define("mingw_target_config " .. cfg)
+end}
+%endif
+
+%if %defined wasm_targets
+%make_build --quiet -C %{wasi_libc_dir}
 %{lua: do
   local wasi_root = rpm.expand("%{wasi_libc_dir}") .. "/sysroot"
-  local set_wasi_root = ""
-  for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
+  local cfg = ""
+  for triple in string.gmatch(rpm.expand("%{wasm_targets}"), "%S+") do
     if string.find(triple, "-wasi") then
-      set_wasi_root = set_wasi_root .. " --set target." .. triple .. ".wasi-root=" .. wasi_root
+      cfg = cfg .. " --set target." .. triple .. ".wasi-root=" .. wasi_root
     end
   end
-  if wasi_root ~= "" then
-    rpm.define("set_wasi_root "..set_wasi_root)
-  end
+  rpm.define("wasm_target_config "..cfg)
 end}
 %endif
 
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
-  --set target.%{rust_triple}.linker=%{__cc} \
-  --set target.%{rust_triple}.cc=%{__cc} \
-  --set target.%{rust_triple}.cxx=%{__cxx} \
+  %{target_config} \
+  %{?mingw_target_config} \
+  %{?wasm_target_config} \
   --python=%{python} \
   --local-rust-root=%{local_rust_root} \
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
@@ -622,7 +696,6 @@ end}
   --tools=analysis,cargo,clippy,rls,rustfmt,src \
   --enable-vendor \
   --enable-verbose-tests \
-  %{?set_wasi_root} \
   --dist-compression-formats=gz \
   --release-channel=%{channel} \
   --release-description="%{?fedora:Fedora }%{?rhel:Red Hat }%{version}-%{release}"
@@ -630,22 +703,18 @@ end}
 %{python} ./x.py build -j "$ncpus" --stage 2
 %{python} ./x.py doc --stage 2
 
-%if %defined cross_targets
-for triple in %{cross_targets}; do
+for triple in %{?mingw_targets} %{?wasm_targets}; do
   %{python} ./x.py build --stage 2 --target=$triple std
 done
-%endif
 
 %install
-export %{rust_env}
+%{export_rust_env}
 
 DESTDIR=%{buildroot} %{python} ./x.py install
 
-%if %defined cross_targets
-for triple in %{cross_targets}; do
+for triple in %{?mingw_targets} %{?wasm_targets}; do
   DESTDIR=%{buildroot} %{python} ./x.py install --target=$triple std
 done
-%endif
 
 # These are transient files used by x.py dist and install
 rm -rf ./build/dist/ ./build/tmp/
@@ -718,7 +787,7 @@ rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 
 
 %check
-export %{rust_env}
+%{export_rust_env}
 
 # Sanity-check the installed binaries, debuginfo-stripped and all.
 %{buildroot}%{_bindir}/cargo new build/hello-world
@@ -766,9 +835,35 @@ env RLS_TEST_WAIT_FOR_AGES=1 \
 %{rustlibdir}/%{rust_triple}/lib/*.rlib
 
 
-%if %defined cross_targets
+%if %defined mingw_targets
 %{lua: do
-  for triple in string.gmatch(rpm.expand("%{cross_targets}"), "%S+") do
+  for triple in string.gmatch(rpm.expand("%{mingw_targets}"), "%S+") do
+    local subs = {
+      triple = triple,
+      rustlibdir = rpm.expand("%{rustlibdir}"),
+    }
+    local s = string.gsub([[
+
+%files std-static-{{triple}}
+%dir {{rustlibdir}}
+%dir {{rustlibdir}}/{{triple}}
+%dir {{rustlibdir}}/{{triple}}/lib
+{{rustlibdir}}/{{triple}}/lib/*.rlib
+{{rustlibdir}}/{{triple}}/lib/rs*.o
+%exclude {{rustlibdir}}/{{triple}}/lib/*.dll
+%exclude {{rustlibdir}}/{{triple}}/lib/*.dll.a
+%exclude {{rustlibdir}}/{{triple}}/lib/self-contained
+
+]], "{{(%w+)}}", subs)
+    print(s)
+  end
+end}
+%endif
+
+
+%if %defined wasm_targets
+%{lua: do
+  for triple in string.gmatch(rpm.expand("%{wasm_targets}"), "%S+") do
     local subs = {
       triple = triple,
       rustlibdir = rpm.expand("%{rustlibdir}"),
@@ -876,6 +971,10 @@ end}
 
 
 %changelog
+* Wed Jan 05 2022 Josh Stone <jistone@redhat.com> - 1.57.0-2
+- Add rust-std-static-i686-pc-windows-gnu
+- Add rust-std-static-x86_64-pc-windows-gnu
+
 * Thu Dec 02 2021 Josh Stone <jistone@redhat.com> - 1.57.0-1
 - Update to 1.57.0, fixes rhbz#2028675.
 - Backport rust#91070, fixes rhbz#1990657

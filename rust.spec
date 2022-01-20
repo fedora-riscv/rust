@@ -78,7 +78,7 @@
 %endif
 
 Name:           rust
-Version:        1.58.0
+Version:        1.58.1
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -109,7 +109,7 @@ Patch101:       rustc-1.58.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
-Patch102:       rustc-1.57.0-no-default-pie.patch
+Patch102:       rustc-1.58.0-no-default-pie.patch
 
 
 # Get the Rust triple for any arch.
@@ -507,7 +507,7 @@ useful as a reference for code completion tools in various editors.
 
 %package analysis
 Summary:        Compiler analysis data for the Rust standard library
-Requires:       rust-std-static%{?_isa} = %{version}-%{release}
+Requires:       %{name}-std-static%{?_isa} = %{version}-%{release}
 
 %description analysis
 This package contains analysis data files produced with rustc's -Zsave-analysis
@@ -639,7 +639,7 @@ fi
   --set target.%{rust_triple}.cc=%{__cc}
   --set target.%{rust_triple}.cxx=%{__cxx}
   --set target.%{rust_triple}.ar=%{__ar}
-  --set target.%{rust_triple}.ranlib=/usr/bin/ranlib
+  --set target.%{rust_triple}.ranlib=%{__ranlib}
 }
 
 %if %defined mingw_targets
@@ -970,6 +970,9 @@ end}
 
 
 %changelog
+* Thu Jan 20 2022 Josh Stone <jistone@redhat.com> - 1.58.1-1
+- Update to 1.58.1.
+
 * Thu Jan 13 2022 Josh Stone <jistone@redhat.com> - 1.58.0-1
 - Update to 1.58.0.
 

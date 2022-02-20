@@ -79,7 +79,7 @@
 
 Name:           rust
 Version:        1.58.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -970,6 +970,9 @@ end}
 
 
 %changelog
+* Sun Feb 20 2022 Igor Raits <igor.raits@gmail.com> - 1.58.1-2
+- Rebuild for libgit2 1.4.x
+
 * Thu Jan 20 2022 Josh Stone <jistone@redhat.com> - 1.58.1-1
 - Update to 1.58.1.
 

@@ -81,7 +81,7 @@
 
 Name:           rust
 Version:        1.59.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -99,6 +99,10 @@ Source1:        %{wasi_libc_source}
 
 # By default, rust tries to use "rust-lld" as a linker for WebAssembly.
 Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
+
+# This regressed in 1.59, hanging builds on s390x, rhbz#2058803
+# https://github.com/rust-lang/rust/pull/94505
+Patch2:         rust-pr94505-mono-item-sort-local.patch
 
 ### RHEL-specific patches below ###
 
@@ -534,6 +538,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
+%patch2 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -972,6 +977,9 @@ end}
 
 
 %changelog
+* Tue Mar 01 2022 Josh Stone <jistone@redhat.com> - 1.59.0-2
+- Fix s390x hangs, rhbz#2058803
+
 * Thu Feb 24 2022 Josh Stone <jistone@redhat.com> - 1.59.0-1
 - Update to 1.59.0.
 - Revert to libgit2 1.3.x

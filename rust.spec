@@ -9,10 +9,10 @@
 # e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
 # or nightly wants some beta-YYYY-MM-DD
 # Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.57.0
-%global bootstrap_cargo 1.57.0
-%global bootstrap_channel 1.57.0
-%global bootstrap_date 2021-12-02
+%global bootstrap_rust 1.58.0
+%global bootstrap_cargo 1.58.0
+%global bootstrap_channel 1.58.0
+%global bootstrap_date 2022-01-13
 
 # Only the specified arches will use bootstrap binaries.
 #global bootstrap_arches %%{rust_arches}
@@ -46,8 +46,10 @@
 %global bundled_llvm_version 13.0.0
 %bcond_with bundled_llvm
 
-# Requires stable libgit2 1.3
+# Requires stable libgit2 1.3, and not the next minor soname change.
+# This needs to be consistent with the bindings in vendor/libgit2-sys.
 %global min_libgit2_version 1.3.0
+%global next_libgit2_version 1.4.0~
 %global bundled_libgit2_version 1.3.0
 %if 0%{?fedora} >= 36
 %bcond_with bundled_libgit2
@@ -78,8 +80,8 @@
 %endif
 
 Name:           rust
-Version:        1.58.1
-Release:        1%{?dist}
+Version:        1.59.0
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -98,14 +100,18 @@ Source1:        %{wasi_libc_source}
 # By default, rust tries to use "rust-lld" as a linker for WebAssembly.
 Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
 
+# This regressed in 1.59, hanging builds on s390x, rhbz#2058803
+# https://github.com/rust-lang/rust/pull/94505
+Patch2:         rust-pr94505-mono-item-sort-local.patch
+
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
-Patch100:       rustc-1.56.0-disable-libssh2.patch
+Patch100:       rustc-1.59.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.58.0-disable-http2.patch
+Patch101:       rustc-1.59.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -179,7 +185,7 @@ BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(zlib)
 
 %if %{without bundled_libgit2}
-BuildRequires:  pkgconfig(libgit2) >= %{min_libgit2_version}
+BuildRequires:  (pkgconfig(libgit2) >= %{min_libgit2_version} with pkgconfig(libgit2) < %{next_libgit2_version})
 %endif
 
 %if %{without disabled_libssh2}
@@ -532,6 +538,7 @@ test -f '%{local_rust_root}/bin/rustc'
 %setup -q -n %{rustc_package}
 
 %patch1 -p1
+%patch2 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -970,6 +977,16 @@ end}
 
 
 %changelog
+* Tue Mar 01 2022 Josh Stone <jistone@redhat.com> - 1.59.0-2
+- Fix s390x hangs, rhbz#2058803
+
+* Thu Feb 24 2022 Josh Stone <jistone@redhat.com> - 1.59.0-1
+- Update to 1.59.0.
+- Revert to libgit2 1.3.x
+
+* Sun Feb 20 2022 Igor Raits <igor.raits@gmail.com> - 1.58.1-2
+- Rebuild for libgit2 1.4.x
+
 * Thu Jan 20 2022 Josh Stone <jistone@redhat.com> - 1.58.1-1
 - Update to 1.58.1.
 

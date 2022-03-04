@@ -15,7 +15,7 @@
 %global bootstrap_date 2022-01-13
 
 # Only the specified arches will use bootstrap binaries.
-#global bootstrap_arches %%{rust_arches}
+%global bootstrap_arches %%{rust_arches}
 
 # Define a space-separated list of targets to ship rust-std-static-$triple for
 # cross-compilation. The packages are noarch, but they're not fully
@@ -81,7 +81,7 @@
 
 Name:           rust
 Version:        1.59.0
-Release:        2%{?dist}
+Release:        2.1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -977,6 +977,9 @@ end}
 
 
 %changelog
+* Fri Mar 04 2022 Stephen Gallagher <sgallagh@redhat.com> - 1.59.0-2.1
+- Bootstrapping for Fedora ELN
+
 * Tue Mar 01 2022 Josh Stone <jistone@redhat.com> - 1.59.0-2
 - Fix s390x hangs, rhbz#2058803
 

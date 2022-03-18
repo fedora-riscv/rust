@@ -6,15 +6,17 @@
 %{!?channel: %global channel stable}
 
 # To bootstrap from scratch, set the channel and date from src/stage0.json
-# e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
+# e.g. 1.59.0 wants rustc: 1.58.0-2022-01-13
 # or nightly wants some beta-YYYY-MM-DD
-# Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.58.0
-%global bootstrap_cargo 1.58.0
+%global bootstrap_version 1.58.0
 %global bootstrap_channel 1.58.0
 %global bootstrap_date 2022-01-13
 
 # Only the specified arches will use bootstrap binaries.
+# NOTE: Those binaries used to be uploaded with every new release, but that was
+# a waste of lookaside cache space when they're most often unused.
+# Run "spectool -g rust.spec" after changing this and then "fedpkg upload" to
+# add them to sources. Remember to remove them again after the bootstrap build!
 #global bootstrap_arches %%{rust_arches}
 
 # Define a space-separated list of targets to ship rust-std-static-$triple for
@@ -144,31 +146,35 @@ end}
   for arch in string.gmatch(rpm.expand("%{bootstrap_arches}"), "%S+") do
     table.insert(bootstrap_arches, arch)
   end
-  local base = rpm.expand("https://static.rust-lang.org/dist/%{bootstrap_date}"
-                          .."/rust-%{bootstrap_channel}")
+  local base = rpm.expand("https://static.rust-lang.org/dist/%{bootstrap_date}")
+  local channel = rpm.expand("%{bootstrap_channel}")
   local target_arch = rpm.expand("%{_target_cpu}")
   for i, arch in ipairs(bootstrap_arches) do
-    i = 100 + i
-    print(string.format("Source%d: %s-%s.tar.xz\n",
-                        i, base, rust_triple(arch)))
+    i = 100 + i * 3
+    local suffix = channel.."-"..rust_triple(arch)
+    print(string.format("Source%d: %s/cargo-%s.tar.xz\n", i, base, suffix))
+    print(string.format("Source%d: %s/rustc-%s.tar.xz\n", i+1, base, suffix))
+    print(string.format("Source%d: %s/rust-std-%s.tar.xz\n", i+2, base, suffix))
     if arch == target_arch then
-      rpm.define("bootstrap_source "..i)
+      rpm.define("bootstrap_source_cargo "..i)
+      rpm.define("bootstrap_source_rustc "..i+1)
+      rpm.define("bootstrap_source_std "..i+2)
+      rpm.define("bootstrap_suffix "..suffix)
     end
   end
 end}
 %endif
 
 %ifarch %{bootstrap_arches}
-%global bootstrap_root rust-%{bootstrap_channel}-%{rust_triple}
-%global local_rust_root %{_builddir}/%{bootstrap_root}/usr
-Provides:       bundled(%{name}-bootstrap) = %{bootstrap_rust}
+%global local_rust_root %{_builddir}/rust-%{bootstrap_suffix}
+Provides:       bundled(%{name}-bootstrap) = %{bootstrap_version}
 %else
-BuildRequires:  cargo >= %{bootstrap_cargo}
+BuildRequires:  cargo >= %{bootstrap_version}
 %if 0%{?rhel} && 0%{?rhel} < 8
-BuildRequires:  %{name} >= %{bootstrap_rust}
+BuildRequires:  %{name} >= %{bootstrap_version}
 BuildConflicts: %{name} > %{version}
 %else
-BuildRequires:  (%{name} >= %{bootstrap_rust} with %{name} <= %{version})
+BuildRequires:  (%{name} >= %{bootstrap_version} with %{name} <= %{version})
 %endif
 %global local_rust_root %{_prefix}
 %endif
@@ -529,9 +535,13 @@ data to provide information about the Rust standard library.
 %prep
 
 %ifarch %{bootstrap_arches}
-%setup -q -n %{bootstrap_root} -T -b %{bootstrap_source}
-./install.sh --components=cargo,rustc,rust-std-%{rust_triple} \
-  --prefix=%{local_rust_root} --disable-ldconfig
+rm -rf %{local_rust_root}
+%setup -q -n cargo-%{bootstrap_suffix} -T -b %{bootstrap_source_cargo}
+./install.sh --prefix=%{local_rust_root} --disable-ldconfig
+%setup -q -n rustc-%{bootstrap_suffix} -T -b %{bootstrap_source_rustc}
+./install.sh --prefix=%{local_rust_root} --disable-ldconfig
+%setup -q -n rust-std-%{bootstrap_suffix} -T -b %{bootstrap_source_std}
+./install.sh --prefix=%{local_rust_root} --disable-ldconfig
 test -f '%{local_rust_root}/bin/cargo'
 test -f '%{local_rust_root}/bin/rustc'
 %endif

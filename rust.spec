@@ -81,7 +81,7 @@
 
 Name:           rust
 Version:        1.59.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -287,16 +287,21 @@ BuildRequires:  %{devtoolset_name}-gcc-c++
 %if %defined mingw_targets
 BuildRequires:  mingw32-filesystem >= 95
 BuildRequires:  mingw64-filesystem >= 95
+BuildRequires:  mingw32-crt
+BuildRequires:  mingw64-crt
 BuildRequires:  mingw32-gcc
 BuildRequires:  mingw64-gcc
+BuildRequires:  mingw32-winpthreads-static
+BuildRequires:  mingw64-winpthreads-static
 %endif
 
 %if %defined wasm_targets
 BuildRequires:  clang
+BuildRequires:  lld
 # brp-strip-static-archive breaks the archive index for wasm
 %global __os_install_post \
 %__os_install_post \
-find '%{buildroot}%{rustlibdir}' -type f -path '*/wasm*/lib/*.rlib' -print -exec '%{llvm_root}/bin/llvm-ranlib' '{}' ';' \
+find '%{buildroot}%{rustlibdir}'/wasm*/lib -type f -regex '.*\\.\\(a\\|rlib\\)' -print -exec '%{llvm_root}/bin/llvm-ranlib' '{}' ';' \
 %{nil}
 %endif
 
@@ -800,6 +805,13 @@ env RUSTC=%{buildroot}%{_bindir}/rustc \
     LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
     %{buildroot}%{_bindir}/cargo run --manifest-path build/hello-world/Cargo.toml
 
+# Try a build sanity-check for other targets
+for triple in %{?mingw_targets} %{?wasm_targets}; do
+  env RUSTC=%{buildroot}%{_bindir}/rustc \
+      LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
+      %{buildroot}%{_bindir}/cargo build --manifest-path build/hello-world/Cargo.toml --target=$triple
+done
+
 # The results are not stable on koji, so mask errors and just log it.
 # Some of the larger test artifacts are manually cleaned to save space.
 %{__python3} ./x.py test --no-fail-fast --stage 2 || :
@@ -977,6 +989,9 @@ end}
 
 
 %changelog
+* Fri Mar 25 2022 Josh Stone <jistone@redhat.com> - 1.59.0-4
+- Fix the archive index for wasm32-wasi's libc.a
+
 * Fri Mar 04 2022 Stephen Gallagher <sgallagh@redhat.com> - 1.59.0-3
 - Rebuild against the bootstrapped build
 

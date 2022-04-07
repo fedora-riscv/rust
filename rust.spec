@@ -8,9 +8,9 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.json
 # e.g. 1.59.0 wants rustc: 1.58.0-2022-01-13
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_version 1.58.0
-%global bootstrap_channel 1.58.0
-%global bootstrap_date 2022-01-13
+%global bootstrap_version 1.59.0
+%global bootstrap_channel 1.59.0
+%global bootstrap_date 2022-02-24
 
 # Only the specified arches will use bootstrap binaries.
 # NOTE: Those binaries used to be uploaded with every new release, but that was
@@ -45,7 +45,7 @@
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
 # is insufficient.  Rust currently requires LLVM 12.0+.
 %global min_llvm_version 12.0.0
-%global bundled_llvm_version 13.0.0
+%global bundled_llvm_version 14.0.0
 %bcond_with bundled_llvm
 
 # Requires stable libgit2 1.3, and not the next minor soname change.
@@ -82,8 +82,8 @@
 %endif
 
 Name:           rust
-Version:        1.59.0
-Release:        4%{?dist}
+Version:        1.60.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -106,6 +106,10 @@ Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
 # https://github.com/rust-lang/rust/pull/94505
 Patch2:         rust-pr94505-mono-item-sort-local.patch
 
+# Clang 14 adds new builtin macros that wasi-libc doesn't expect yet
+# See https://github.com/WebAssembly/wasi-libc/pull/265
+Patch3:         wasi-libc-clang-14-compat.patch
+
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
@@ -113,7 +117,7 @@ Patch100:       rustc-1.59.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.59.0-disable-http2.patch
+Patch101:       rustc-1.60.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -548,6 +552,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %if %defined wasm_targets
 %setup -q -n %{wasi_libc_name} -T -b 1
+%patch3 -p1
 %endif
 
 %setup -q -n %{rustc_package}
@@ -656,14 +661,6 @@ if [ "$max_cpus" -ge 1 -a "$max_cpus" -lt "$ncpus" ]; then
   ncpus="$max_cpus"
 fi
 
-%define target_config %{shrink:
-  --set target.%{rust_triple}.linker=%{__cc}
-  --set target.%{rust_triple}.cc=%{__cc}
-  --set target.%{rust_triple}.cxx=%{__cxx}
-  --set target.%{rust_triple}.ar=%{__ar}
-  --set target.%{rust_triple}.ranlib=%{__ranlib}
-}
-
 %if %defined mingw_targets
 %{lua: do
   local cfg = ""
@@ -672,14 +669,15 @@ fi
       triple = triple,
       mingw = string.sub(triple, 1, 4) == "i686" and "mingw32" or "mingw64",
     }
-    local s = string.gsub([[%{shrink:
+    local s = string.gsub([[
       --set target.{{triple}}.linker=%{{{mingw}}_cc}
       --set target.{{triple}}.cc=%{{{mingw}}_cc}
       --set target.{{triple}}.ar=%{{{mingw}}_ar}
       --set target.{{triple}}.ranlib=%{{{mingw}}_ranlib}
-    }]], "{{(%w+)}}", subs)
+    ]], "{{(%w+)}}", subs)
     cfg = cfg .. " " .. s
   end
+  cfg = string.gsub(cfg, "%s+", " ")
   rpm.define("mingw_target_config " .. cfg)
 end}
 %endif
@@ -701,11 +699,16 @@ end}
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
-  %{target_config} \
+  --set target.%{rust_triple}.linker=%{__cc} \
+  --set target.%{rust_triple}.cc=%{__cc} \
+  --set target.%{rust_triple}.cxx=%{__cxx} \
+  --set target.%{rust_triple}.ar=%{__ar} \
+  --set target.%{rust_triple}.ranlib=%{__ranlib} \
   %{?mingw_target_config} \
   %{?wasm_target_config} \
   --python=%{__python3} \
   --local-rust-root=%{local_rust_root} \
+  --set build.rustfmt=/bin/true \
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
     %{!?llvm_has_filecheck: --disable-codegen-tests} \
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
@@ -999,6 +1002,9 @@ end}
 
 
 %changelog
+* Thu Apr 07 2022 Josh Stone <jistone@redhat.com> - 1.60.0-1
+- Update to 1.60.0.
+
 * Fri Mar 25 2022 Josh Stone <jistone@redhat.com> - 1.59.0-4
 - Fix the archive index for wasm32-wasi's libc.a
 

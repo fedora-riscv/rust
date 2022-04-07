@@ -6,15 +6,17 @@
 %{!?channel: %global channel stable}
 
 # To bootstrap from scratch, set the channel and date from src/stage0.json
-# e.g. 1.10.0 wants rustc: 1.9.0-2016-05-24
+# e.g. 1.59.0 wants rustc: 1.58.0-2022-01-13
 # or nightly wants some beta-YYYY-MM-DD
-# Note that cargo matches the program version here, not its crate version.
-%global bootstrap_rust 1.58.0
-%global bootstrap_cargo 1.58.0
-%global bootstrap_channel 1.58.0
-%global bootstrap_date 2022-01-13
+%global bootstrap_version 1.59.0
+%global bootstrap_channel 1.59.0
+%global bootstrap_date 2022-02-24
 
 # Only the specified arches will use bootstrap binaries.
+# NOTE: Those binaries used to be uploaded with every new release, but that was
+# a waste of lookaside cache space when they're most often unused.
+# Run "spectool -g rust.spec" after changing this and then "fedpkg upload" to
+# add them to sources. Remember to remove them again after the bootstrap build!
 #global bootstrap_arches %%{rust_arches}
 
 # Define a space-separated list of targets to ship rust-std-static-$triple for
@@ -43,7 +45,7 @@
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
 # is insufficient.  Rust currently requires LLVM 12.0+.
 %global min_llvm_version 12.0.0
-%global bundled_llvm_version 13.0.0
+%global bundled_llvm_version 14.0.0
 %bcond_with bundled_llvm
 
 # Requires stable libgit2 1.3, and not the next minor soname change.
@@ -80,8 +82,8 @@
 %endif
 
 Name:           rust
-Version:        1.59.0
-Release:        2%{?dist}
+Version:        1.60.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -104,6 +106,10 @@ Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
 # https://github.com/rust-lang/rust/pull/94505
 Patch2:         rust-pr94505-mono-item-sort-local.patch
 
+# Clang 14 adds new builtin macros that wasi-libc doesn't expect yet
+# See https://github.com/WebAssembly/wasi-libc/pull/265
+Patch3:         wasi-libc-clang-14-compat.patch
+
 ### RHEL-specific patches below ###
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
@@ -111,7 +117,7 @@ Patch100:       rustc-1.59.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.59.0-disable-http2.patch
+Patch101:       rustc-1.60.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -144,31 +150,35 @@ end}
   for arch in string.gmatch(rpm.expand("%{bootstrap_arches}"), "%S+") do
     table.insert(bootstrap_arches, arch)
   end
-  local base = rpm.expand("https://static.rust-lang.org/dist/%{bootstrap_date}"
-                          .."/rust-%{bootstrap_channel}")
+  local base = rpm.expand("https://static.rust-lang.org/dist/%{bootstrap_date}")
+  local channel = rpm.expand("%{bootstrap_channel}")
   local target_arch = rpm.expand("%{_target_cpu}")
   for i, arch in ipairs(bootstrap_arches) do
-    i = 100 + i
-    print(string.format("Source%d: %s-%s.tar.xz\n",
-                        i, base, rust_triple(arch)))
+    i = 100 + i * 3
+    local suffix = channel.."-"..rust_triple(arch)
+    print(string.format("Source%d: %s/cargo-%s.tar.xz\n", i, base, suffix))
+    print(string.format("Source%d: %s/rustc-%s.tar.xz\n", i+1, base, suffix))
+    print(string.format("Source%d: %s/rust-std-%s.tar.xz\n", i+2, base, suffix))
     if arch == target_arch then
-      rpm.define("bootstrap_source "..i)
+      rpm.define("bootstrap_source_cargo "..i)
+      rpm.define("bootstrap_source_rustc "..i+1)
+      rpm.define("bootstrap_source_std "..i+2)
+      rpm.define("bootstrap_suffix "..suffix)
     end
   end
 end}
 %endif
 
 %ifarch %{bootstrap_arches}
-%global bootstrap_root rust-%{bootstrap_channel}-%{rust_triple}
-%global local_rust_root %{_builddir}/%{bootstrap_root}/usr
-Provides:       bundled(%{name}-bootstrap) = %{bootstrap_rust}
+%global local_rust_root %{_builddir}/rust-%{bootstrap_suffix}
+Provides:       bundled(%{name}-bootstrap) = %{bootstrap_version}
 %else
-BuildRequires:  cargo >= %{bootstrap_cargo}
+BuildRequires:  cargo >= %{bootstrap_version}
 %if 0%{?rhel} && 0%{?rhel} < 8
-BuildRequires:  %{name} >= %{bootstrap_rust}
+BuildRequires:  %{name} >= %{bootstrap_version}
 BuildConflicts: %{name} > %{version}
 %else
-BuildRequires:  (%{name} >= %{bootstrap_rust} with %{name} <= %{version})
+BuildRequires:  (%{name} >= %{bootstrap_version} with %{name} <= %{version})
 %endif
 %global local_rust_root %{_prefix}
 %endif
@@ -287,16 +297,21 @@ BuildRequires:  %{devtoolset_name}-gcc-c++
 %if %defined mingw_targets
 BuildRequires:  mingw32-filesystem >= 95
 BuildRequires:  mingw64-filesystem >= 95
+BuildRequires:  mingw32-crt
+BuildRequires:  mingw64-crt
 BuildRequires:  mingw32-gcc
 BuildRequires:  mingw64-gcc
+BuildRequires:  mingw32-winpthreads-static
+BuildRequires:  mingw64-winpthreads-static
 %endif
 
 %if %defined wasm_targets
 BuildRequires:  clang
+BuildRequires:  lld
 # brp-strip-static-archive breaks the archive index for wasm
 %global __os_install_post \
 %__os_install_post \
-find '%{buildroot}%{rustlibdir}' -type f -path '*/wasm*/lib/*.rlib' -print -exec '%{llvm_root}/bin/llvm-ranlib' '{}' ';' \
+find '%{buildroot}%{rustlibdir}'/wasm*/lib -type f -regex '.*\\.\\(a\\|rlib\\)' -print -exec '%{llvm_root}/bin/llvm-ranlib' '{}' ';' \
 %{nil}
 %endif
 
@@ -524,15 +539,20 @@ data to provide information about the Rust standard library.
 %prep
 
 %ifarch %{bootstrap_arches}
-%setup -q -n %{bootstrap_root} -T -b %{bootstrap_source}
-./install.sh --components=cargo,rustc,rust-std-%{rust_triple} \
-  --prefix=%{local_rust_root} --disable-ldconfig
+rm -rf %{local_rust_root}
+%setup -q -n cargo-%{bootstrap_suffix} -T -b %{bootstrap_source_cargo}
+./install.sh --prefix=%{local_rust_root} --disable-ldconfig
+%setup -q -n rustc-%{bootstrap_suffix} -T -b %{bootstrap_source_rustc}
+./install.sh --prefix=%{local_rust_root} --disable-ldconfig
+%setup -q -n rust-std-%{bootstrap_suffix} -T -b %{bootstrap_source_std}
+./install.sh --prefix=%{local_rust_root} --disable-ldconfig
 test -f '%{local_rust_root}/bin/cargo'
 test -f '%{local_rust_root}/bin/rustc'
 %endif
 
 %if %defined wasm_targets
 %setup -q -n %{wasi_libc_name} -T -b 1
+%patch3 -p1
 %endif
 
 %setup -q -n %{rustc_package}
@@ -641,14 +661,6 @@ if [ "$max_cpus" -ge 1 -a "$max_cpus" -lt "$ncpus" ]; then
   ncpus="$max_cpus"
 fi
 
-%define target_config %(xargs <<EOF
-  --set target.%{rust_triple}.linker=%{__cc}
-  --set target.%{rust_triple}.cc=%{__cc}
-  --set target.%{rust_triple}.cxx=%{__cxx}
-  --set target.%{rust_triple}.ar=%{__ar}
-  --set target.%{rust_triple}.ranlib=%{__ranlib}
-EOF)
-
 %if %defined mingw_targets
 %{lua: do
   local cfg = ""
@@ -657,14 +669,15 @@ EOF)
       triple = triple,
       mingw = string.sub(triple, 1, 4) == "i686" and "mingw32" or "mingw64",
     }
-    local s = string.gsub([[%{shrink:
+    local s = string.gsub([[
       --set target.{{triple}}.linker=%{{{mingw}}_cc}
       --set target.{{triple}}.cc=%{{{mingw}}_cc}
       --set target.{{triple}}.ar=%{{{mingw}}_ar}
       --set target.{{triple}}.ranlib=%{{{mingw}}_ranlib}
-    }]], "{{(%w+)}}", subs)
+    ]], "{{(%w+)}}", subs)
     cfg = cfg .. " " .. s
   end
+  cfg = string.gsub(cfg, "%s+", " ")
   rpm.define("mingw_target_config " .. cfg)
 end}
 %endif
@@ -686,11 +699,16 @@ end}
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \
   --build=%{rust_triple} --host=%{rust_triple} --target=%{rust_triple} \
-  %{target_config} \
+  --set target.%{rust_triple}.linker=%{__cc} \
+  --set target.%{rust_triple}.cc=%{__cc} \
+  --set target.%{rust_triple}.cxx=%{__cxx} \
+  --set target.%{rust_triple}.ar=%{__ar} \
+  --set target.%{rust_triple}.ranlib=%{__ranlib} \
   %{?mingw_target_config} \
   %{?wasm_target_config} \
   --python=%{__python3} \
   --local-rust-root=%{local_rust_root} \
+  --set build.rustfmt=/bin/true \
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
     %{!?llvm_has_filecheck: --disable-codegen-tests} \
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
@@ -799,6 +817,13 @@ rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 env RUSTC=%{buildroot}%{_bindir}/rustc \
     LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
     %{buildroot}%{_bindir}/cargo run --manifest-path build/hello-world/Cargo.toml
+
+# Try a build sanity-check for other targets
+for triple in %{?mingw_targets} %{?wasm_targets}; do
+  env RUSTC=%{buildroot}%{_bindir}/rustc \
+      LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
+      %{buildroot}%{_bindir}/cargo build --manifest-path build/hello-world/Cargo.toml --target=$triple
+done
 
 # The results are not stable on koji, so mask errors and just log it.
 # Some of the larger test artifacts are manually cleaned to save space.
@@ -977,6 +1002,18 @@ end}
 
 
 %changelog
+* Thu Apr 07 2022 Josh Stone <jistone@redhat.com> - 1.60.0-1
+- Update to 1.60.0.
+
+* Fri Mar 25 2022 Josh Stone <jistone@redhat.com> - 1.59.0-4
+- Fix the archive index for wasm32-wasi's libc.a
+
+* Fri Mar 04 2022 Stephen Gallagher <sgallagh@redhat.com> - 1.59.0-3
+- Rebuild against the bootstrapped build
+
+* Fri Mar 04 2022 Stephen Gallagher <sgallagh@redhat.com> - 1.59.0-2.1
+- Bootstrapping for Fedora ELN
+
 * Tue Mar 01 2022 Josh Stone <jistone@redhat.com> - 1.59.0-2
 - Fix s390x hangs, rhbz#2058803
 

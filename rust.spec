@@ -8,9 +8,9 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.json
 # e.g. 1.59.0 wants rustc: 1.58.0-2022-01-13
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_version 1.59.0
-%global bootstrap_channel 1.59.0
-%global bootstrap_date 2022-02-24
+%global bootstrap_version 1.60.0
+%global bootstrap_channel 1.60.0
+%global bootstrap_date 2022-04-07
 
 # Only the specified arches will use bootstrap binaries.
 # NOTE: Those binaries used to be uploaded with every new release, but that was
@@ -33,8 +33,9 @@
 
 # We need CRT files for *-wasi targets, at least as new as the commit in
 # src/ci/docker/host-x86_64/dist-various-2/build-wasi-toolchain.sh
+# (updated per https://github.com/rust-lang/rust/pull/96907)
 %global wasi_libc_url https://github.com/WebAssembly/wasi-libc
-%global wasi_libc_commit ad5133410f66b93a2381db5b542aad5e0964db96
+%global wasi_libc_commit 9886d3d6200fcc3726329966860fc058707406cd
 %global wasi_libc_name wasi-libc-%{wasi_libc_commit}
 %global wasi_libc_source %{wasi_libc_url}/archive/%{wasi_libc_commit}/%{wasi_libc_name}.tar.gz
 %global wasi_libc_dir %{_builddir}/%{wasi_libc_name}
@@ -48,12 +49,12 @@
 %global bundled_llvm_version 14.0.0
 %bcond_with bundled_llvm
 
-# Requires stable libgit2 1.3, and not the next minor soname change.
+# Requires stable libgit2 1.4, and not the next minor soname change.
 # This needs to be consistent with the bindings in vendor/libgit2-sys.
-%global min_libgit2_version 1.3.0
-%global next_libgit2_version 1.4.0~
-%global bundled_libgit2_version 1.3.0
-%if 0%{?fedora} >= 36
+%global min_libgit2_version 1.4.0
+%global next_libgit2_version 1.5.0~
+%global bundled_libgit2_version 1.4.2
+%if 0%{?fedora} >= 99
 %bcond_with bundled_libgit2
 %else
 %bcond_without bundled_libgit2
@@ -82,7 +83,7 @@
 %endif
 
 Name:           rust
-Version:        1.60.0
+Version:        1.61.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -102,22 +103,20 @@ Source1:        %{wasi_libc_source}
 # By default, rust tries to use "rust-lld" as a linker for WebAssembly.
 Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
 
-# This regressed in 1.59, hanging builds on s390x, rhbz#2058803
-# https://github.com/rust-lang/rust/pull/94505
-Patch2:         rust-pr94505-mono-item-sort-local.patch
-
-# Clang 14 adds new builtin macros that wasi-libc doesn't expect yet
-# See https://github.com/WebAssembly/wasi-libc/pull/265
-Patch3:         wasi-libc-clang-14-compat.patch
+# Set a substitute-path in rust-gdb for standard library sources.
+Patch2:         rustc-1.61.0-rust-gdb-substitute-path.patch
 
 ### RHEL-specific patches below ###
+
+# Simple rpm macros for rust-toolset (as opposed to full rust-packaging)
+Source100:      macros.rust-toolset
 
 # Disable cargo->libgit2->libssh2 on RHEL, as it's not approved for FIPS (rhbz1732949)
 Patch100:       rustc-1.59.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.60.0-disable-http2.patch
+Patch101:       rustc-1.61.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -154,7 +153,7 @@ end}
   local channel = rpm.expand("%{bootstrap_channel}")
   local target_arch = rpm.expand("%{_target_cpu}")
   for i, arch in ipairs(bootstrap_arches) do
-    i = 100 + i * 3
+    i = 1000 + i * 3
     local suffix = channel.."-"..rust_triple(arch)
     print(string.format("Source%d: %s/cargo-%s.tar.xz\n", i, base, suffix))
     print(string.format("Source%d: %s/rustc-%s.tar.xz\n", i+1, base, suffix))
@@ -536,6 +535,20 @@ feature for the Rust standard library. The RLS (Rust Language Server) uses this
 data to provide information about the Rust standard library.
 
 
+%if 0%{?rhel} && 0%{?rhel} >= 8
+
+%package toolset
+Summary:        Rust Toolset
+Requires:       rust%{?_isa} = %{version}-%{release}
+Requires:       cargo%{?_isa} = %{version}-%{release}
+
+%description toolset
+This is the metapackage for Rust Toolset, bringing in the Rust compiler,
+the Cargo package manager, and a few convenience macros for rpm builds.
+
+%endif
+
+
 %prep
 
 %ifarch %{bootstrap_arches}
@@ -552,7 +565,6 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %if %defined wasm_targets
 %setup -q -n %{wasi_libc_name} -T -b 1
-%patch3 -p1
 %endif
 
 %setup -q -n %{rustc_package}
@@ -576,6 +588,9 @@ rm -rf vendor/libnghttp2-sys/
 # Use our explicit python3 first
 sed -i.try-python -e '/^try python3 /i try "%{__python3}" "$@"' ./configure
 
+# Set a substitute-path in rust-gdb for standard library sources.
+sed -i.rust-src -e "s#@BUILDDIR@#$PWD#" ./src/etc/rust-gdb
+
 %if %without bundled_llvm
 rm -rf src/llvm-project/
 mkdir -p src/llvm-project/libunwind/
@@ -583,7 +598,8 @@ mkdir -p src/llvm-project/libunwind/
 
 # Remove other unused vendored libraries
 rm -rf vendor/curl-sys/curl/
-rm -rf vendor/jemalloc-sys/jemalloc/
+rm -rf vendor/*jemalloc-sys*/jemalloc/
+rm -rf vendor/libmimalloc-sys/c_src/mimalloc/
 rm -rf vendor/libssh2-sys/libssh2/
 rm -rf vendor/libz-sys/src/zlib/
 rm -rf vendor/libz-sys/src/zlib-ng/
@@ -683,7 +699,7 @@ end}
 %endif
 
 %if %defined wasm_targets
-%make_build --quiet -C %{wasi_libc_dir}
+%make_build --quiet -C %{wasi_libc_dir} CC=clang AR=llvm-ar NM=llvm-nm
 %{lua: do
   local wasi_root = rpm.expand("%{wasi_libc_dir}") .. "/sysroot"
   local cfg = ""
@@ -712,6 +728,7 @@ end}
   %{!?with_bundled_llvm: --llvm-root=%{llvm_root} \
     %{!?llvm_has_filecheck: --disable-codegen-tests} \
     %{!?with_llvm_static: --enable-llvm-link-shared } } \
+  --disable-llvm-static-stdcpp \
   --disable-rpath \
   %{enable_debuginfo} \
   --set rust.codegen-units-std=1 \
@@ -807,6 +824,11 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*
 
 # We don't want Rust copies of LLVM tools (rust-lld, rust-llvm-dwp)
 rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
+
+%if 0%{?rhel} && 0%{?rhel} >= 8
+# This allows users to build packages using Rust Toolset.
+%{__install} -D -m 644 %{S:100} %{buildroot}%{rpmmacrodir}/macros.rust-toolset
+%endif
 
 
 %check
@@ -1001,7 +1023,17 @@ end}
 %{rustlibdir}/%{rust_triple}/analysis/
 
 
+%if 0%{?rhel} && 0%{?rhel} >= 8
+%files toolset
+%{rpmmacrodir}/macros.rust-toolset
+%endif
+
+
 %changelog
+* Thu May 19 2022 Josh Stone <jistone@redhat.com> - 1.61.0-1
+- Update to 1.61.0.
+- Add rust-toolset for ELN.
+
 * Thu Apr 07 2022 Josh Stone <jistone@redhat.com> - 1.60.0-1
 - Update to 1.60.0.
 

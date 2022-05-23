@@ -84,7 +84,7 @@
 
 Name:           rust
 Version:        1.61.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -105,6 +105,13 @@ Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
 
 # Set a substitute-path in rust-gdb for standard library sources.
 Patch2:         rustc-1.61.0-rust-gdb-substitute-path.patch
+
+# Infer the type that compiletest uses for TestDesc ignore_message
+Patch3:         rustc-1.61.0-fix-compiletest-ignore_message.patch
+
+# Add missing target_feature to the list of well known cfg names
+# https://github.com/rust-lang/rust/pull/96483
+Patch4:         0001-Add-missing-target_feature-to-the-list-of-well-known.patch
 
 ### RHEL-specific patches below ###
 
@@ -571,6 +578,8 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -1030,6 +1039,9 @@ end}
 
 
 %changelog
+* Mon May 23 2022 Josh Stone <jistone@redhat.com> - 1.61.0-2
+- Add missing target_feature to the list of well known cfg names
+
 * Thu May 19 2022 Josh Stone <jistone@redhat.com> - 1.61.0-1
 - Update to 1.61.0.
 - Add rust-toolset for ELN.

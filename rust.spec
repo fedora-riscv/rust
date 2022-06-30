@@ -8,9 +8,9 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.json
 # e.g. 1.59.0 wants rustc: 1.58.0-2022-01-13
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_version 1.60.0
-%global bootstrap_channel 1.60.0
-%global bootstrap_date 2022-04-07
+%global bootstrap_version 1.61.0
+%global bootstrap_channel 1.61.0
+%global bootstrap_date 2022-05-19
 
 # Only the specified arches will use bootstrap binaries.
 # NOTE: Those binaries used to be uploaded with every new release, but that was
@@ -46,7 +46,7 @@
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
 # is insufficient.  Rust currently requires LLVM 12.0+.
 %global min_llvm_version 12.0.0
-%global bundled_llvm_version 14.0.0
+%global bundled_llvm_version 14.0.4
 %bcond_with bundled_llvm
 
 # Requires stable libgit2 1.4, and not the next minor soname change.
@@ -83,8 +83,8 @@
 %endif
 
 Name:           rust
-Version:        1.61.0
-Release:        2%{?dist}
+Version:        1.62.0
+Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -106,13 +106,6 @@ Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
 # Set a substitute-path in rust-gdb for standard library sources.
 Patch2:         rustc-1.61.0-rust-gdb-substitute-path.patch
 
-# Infer the type that compiletest uses for TestDesc ignore_message
-Patch3:         rustc-1.61.0-fix-compiletest-ignore_message.patch
-
-# Add missing target_feature to the list of well known cfg names
-# https://github.com/rust-lang/rust/pull/96483
-Patch4:         0001-Add-missing-target_feature-to-the-list-of-well-known.patch
-
 ### RHEL-specific patches below ###
 
 # Simple rpm macros for rust-toolset (as opposed to full rust-packaging)
@@ -123,7 +116,7 @@ Patch100:       rustc-1.59.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.61.0-disable-http2.patch
+Patch101:       rustc-1.62.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -578,8 +571,6 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1
 %patch2 -p1
-%patch3 -p1
-%patch4 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -979,7 +970,6 @@ end}
 %{_docdir}/%{name}/html/*.js
 %{_docdir}/%{name}/html/*.png
 %{_docdir}/%{name}/html/*.svg
-%{_docdir}/%{name}/html/*.woff
 %{_docdir}/%{name}/html/*.woff2
 %license %{_docdir}/%{name}/html/*.txt
 %license %{_docdir}/%{name}/html/*.md
@@ -1039,6 +1029,9 @@ end}
 
 
 %changelog
+* Thu Jun 30 2022 Josh Stone <jistone@redhat.com> - 1.62.0-1
+- Update to 1.62.0.
+
 * Mon May 23 2022 Josh Stone <jistone@redhat.com> - 1.61.0-2
 - Add missing target_feature to the list of well known cfg names
 

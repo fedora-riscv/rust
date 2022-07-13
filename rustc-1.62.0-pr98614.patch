@@ -1,0 +1,846 @@
+From 3dfd37fcd387c18205a93ad2ad519c2ab5e1b289 Mon Sep 17 00:00:00 2001
+From: Oli Scherer <git-spam-no-reply9815368754983@oli-obk.de>
+Date: Wed, 29 Jun 2022 14:25:44 +0000
+Subject: [PATCH 1/7] pessimistically treat all function items as containing an
+ opaque type
+
+(cherry picked from commit 9dbfcbcbb5d835c2a5784e2f4da4816b90c43ff5)
+---
+ compiler/rustc_middle/src/ty/flags.rs          |  5 +++++
+ .../issue-53398-cyclic-types.rs                |  2 +-
+ .../issue-53398-cyclic-types.stderr            |  4 +---
+ .../ui/type-alias-impl-trait/issue-98604.rs    | 13 +++++++++++++
+ .../type-alias-impl-trait/issue-98604.stderr   | 18 ++++++++++++++++++
+ .../ui/type-alias-impl-trait/issue-98608.rs    |  9 +++++++++
+ .../type-alias-impl-trait/issue-98608.stderr   | 16 ++++++++++++++++
+ 7 files changed, 63 insertions(+), 4 deletions(-)
+ create mode 100644 src/test/ui/type-alias-impl-trait/issue-98604.rs
+ create mode 100644 src/test/ui/type-alias-impl-trait/issue-98604.stderr
+ create mode 100644 src/test/ui/type-alias-impl-trait/issue-98608.rs
+ create mode 100644 src/test/ui/type-alias-impl-trait/issue-98608.stderr
+
+diff --git a/compiler/rustc_middle/src/ty/flags.rs b/compiler/rustc_middle/src/ty/flags.rs
+index 7a3d615862cb..63b1352e66b8 100644
+--- a/compiler/rustc_middle/src/ty/flags.rs
++++ b/compiler/rustc_middle/src/ty/flags.rs
+@@ -207,6 +207,11 @@ fn add_kind(&mut self, kind: &ty::TyKind<'_>) {
+ 
+             &ty::FnDef(_, substs) => {
+                 self.add_substs(substs);
++                // HACK(#98608, oli-obk): Function items with opaque types in their signature will
++                // end up not having the HAS_TY_OPAQUE flag set, causing `evaluate_obligation` to
++                // optimistically assume the function item matches any signature. See documentation
++                // on `HAS_FREE_LOCAL_NAMES` for details.
++                self.add_flags(TypeFlags::HAS_TY_OPAQUE);
+             }
+ 
+             &ty::FnPtr(fn_sig) => self.bound_computation(fn_sig, |computation, fn_sig| {
+diff --git a/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.rs b/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.rs
+index 6c838f410036..4bc0f9d92008 100644
+--- a/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.rs
++++ b/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.rs
+@@ -3,7 +3,7 @@
+ type Foo = impl Fn() -> Foo;
+ 
+ fn foo() -> Foo {
+-    foo //~ ERROR: overflow evaluating the requirement `fn() -> Foo {foo}: Sized`
++    foo //~ ERROR: overflow evaluating the requirement `<fn() -> Foo {foo} as FnOnce<()>>::Output == fn() -> Foo {foo}`
+ }
+ 
+ fn main() {}
+diff --git a/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.stderr b/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.stderr
+index a9c2c18630c0..f69514b7808f 100644
+--- a/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.stderr
++++ b/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.stderr
+@@ -1,10 +1,8 @@
+-error[E0275]: overflow evaluating the requirement `fn() -> Foo {foo}: Sized`
++error[E0275]: overflow evaluating the requirement `<fn() -> Foo {foo} as FnOnce<()>>::Output == fn() -> Foo {foo}`
+   --> $DIR/issue-53398-cyclic-types.rs:6:5
+    |
+ LL |     foo
+    |     ^^^
+-   |
+-   = help: consider increasing the recursion limit by adding a `#![recursion_limit = "256"]` attribute to your crate (`issue_53398_cyclic_types`)
+ 
+ error: aborting due to previous error
+ 
+diff --git a/src/test/ui/type-alias-impl-trait/issue-98604.rs b/src/test/ui/type-alias-impl-trait/issue-98604.rs
+new file mode 100644
+index 000000000000..a4fd8a82a04f
+--- /dev/null
++++ b/src/test/ui/type-alias-impl-trait/issue-98604.rs
+@@ -0,0 +1,13 @@
++// edition:2018
++
++type AsyncFnPtr = Box<
++    dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = ()>>>,
++>;
++
++async fn test() {}
++
++#[allow(unused_must_use)]
++fn main() {
++    Box::new(test) as AsyncFnPtr;
++    //~^ ERROR type mismatch
++}
+diff --git a/src/test/ui/type-alias-impl-trait/issue-98604.stderr b/src/test/ui/type-alias-impl-trait/issue-98604.stderr
+new file mode 100644
+index 000000000000..f04d1b4d7877
+--- /dev/null
++++ b/src/test/ui/type-alias-impl-trait/issue-98604.stderr
+@@ -0,0 +1,18 @@
++error[E0271]: type mismatch resolving `<fn() -> impl Future<Output = ()> {test} as FnOnce<()>>::Output == Pin<Box<(dyn Future<Output = ()> + 'static)>>`
++  --> $DIR/issue-98604.rs:11:5
++   |
++LL |     Box::new(test) as AsyncFnPtr;
++   |     ^^^^^^^^^^^^^^ expected struct `Pin`, found opaque type
++   |
++note: while checking the return type of the `async fn`
++  --> $DIR/issue-98604.rs:7:17
++   |
++LL | async fn test() {}
++   |                 ^ checked the `Output` of this `async fn`, found opaque type
++   = note:   expected struct `Pin<Box<(dyn Future<Output = ()> + 'static)>>`
++           found opaque type `impl Future<Output = ()>`
++   = note: required for the cast from `fn() -> impl Future<Output = ()> {test}` to the object type `dyn Fn() -> Pin<Box<(dyn Future<Output = ()> + 'static)>>`
++
++error: aborting due to previous error
++
++For more information about this error, try `rustc --explain E0271`.
+diff --git a/src/test/ui/type-alias-impl-trait/issue-98608.rs b/src/test/ui/type-alias-impl-trait/issue-98608.rs
+new file mode 100644
+index 000000000000..d75762a8b62f
+--- /dev/null
++++ b/src/test/ui/type-alias-impl-trait/issue-98608.rs
+@@ -0,0 +1,9 @@
++fn hi() -> impl Sized { std::ptr::null::<u8>() }
++
++fn main() {
++    let b: Box<dyn Fn() -> Box<u8>> = Box::new(hi);
++    //~^ ERROR type mismatch resolving `<fn() -> impl Sized {hi} as FnOnce<()>>::Output == Box<u8>`
++    let boxed = b();
++    let null = *boxed;
++    println!("{null:?}");
++}
+diff --git a/src/test/ui/type-alias-impl-trait/issue-98608.stderr b/src/test/ui/type-alias-impl-trait/issue-98608.stderr
+new file mode 100644
+index 000000000000..8f3ec7d9d161
+--- /dev/null
++++ b/src/test/ui/type-alias-impl-trait/issue-98608.stderr
+@@ -0,0 +1,16 @@
++error[E0271]: type mismatch resolving `<fn() -> impl Sized {hi} as FnOnce<()>>::Output == Box<u8>`
++  --> $DIR/issue-98608.rs:4:39
++   |
++LL | fn hi() -> impl Sized { std::ptr::null::<u8>() }
++   |            ---------- the found opaque type
++...
++LL |     let b: Box<dyn Fn() -> Box<u8>> = Box::new(hi);
++   |                                       ^^^^^^^^^^^^ expected struct `Box`, found opaque type
++   |
++   = note:   expected struct `Box<u8>`
++           found opaque type `impl Sized`
++   = note: required for the cast from `fn() -> impl Sized {hi}` to the object type `dyn Fn() -> Box<u8>`
++
++error: aborting due to previous error
++
++For more information about this error, try `rustc --explain E0271`.
+-- 
+2.36.1
+
+
+From f2572a99471d046bef973512026b682bbd60fc1d Mon Sep 17 00:00:00 2001
+From: Oli Scherer <git-spam-no-reply9815368754983@oli-obk.de>
+Date: Thu, 30 Jun 2022 13:24:35 +0000
+Subject: [PATCH 2/7] use a method instead of manually doing what its body does
+
+(cherry picked from commit ade2a96ff1e2c3d434f57b8fa07da66969bceaae)
+---
+ compiler/rustc_infer/src/traits/project.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/compiler/rustc_infer/src/traits/project.rs b/compiler/rustc_infer/src/traits/project.rs
+index b84ed3dc6893..18469208731c 100644
+--- a/compiler/rustc_infer/src/traits/project.rs
++++ b/compiler/rustc_infer/src/traits/project.rs
+@@ -203,7 +203,7 @@ pub fn complete(&mut self, key: ProjectionCacheKey<'tcx>, result: EvaluationResu
+             Some(&ProjectionCacheEntry::NormalizedTy { ref ty, complete: _ }) => {
+                 info!("ProjectionCacheEntry::complete({:?}) - completing {:?}", key, ty);
+                 let mut ty = ty.clone();
+-                if result == EvaluationResult::EvaluatedToOk {
++                if result.must_apply_considering_regions() {
+                     ty.obligations = vec![];
+                 }
+                 map.insert(key, ProjectionCacheEntry::NormalizedTy { ty, complete: Some(result) });
+-- 
+2.36.1
+
+
+From 2c7eb77c52989ea098e8b50e97d62ff4a3dc6c97 Mon Sep 17 00:00:00 2001
+From: Oli Scherer <git-spam-no-reply9815368754983@oli-obk.de>
+Date: Thu, 30 Jun 2022 14:23:31 +0000
+Subject: [PATCH 3/7] Make `evaluate_obligation` not succeed unconditionally if
+ it registered new hidden types for opaque types
+
+(cherry picked from commit 84fc5516648e34f15d17b2ca0b892adb3743a5c0)
+---
+ compiler/rustc_infer/src/infer/mod.rs          |  4 ++++
+ compiler/rustc_infer/src/infer/undo_log.rs     |  4 ++++
+ compiler/rustc_middle/src/traits/select.rs     | 18 ++++++++++++++----
+ compiler/rustc_middle/src/ty/flags.rs          |  5 -----
+ .../src/traits/error_reporting/suggestions.rs  |  1 +
+ .../src/traits/select/mod.rs                   |  4 ++++
+ .../issue-53398-cyclic-types.rs                |  2 +-
+ .../issue-53398-cyclic-types.stderr            |  4 +++-
+ 8 files changed, 31 insertions(+), 11 deletions(-)
+
+diff --git a/compiler/rustc_infer/src/infer/mod.rs b/compiler/rustc_infer/src/infer/mod.rs
+index c9121f7d348c..989cc551a82f 100644
+--- a/compiler/rustc_infer/src/infer/mod.rs
++++ b/compiler/rustc_infer/src/infer/mod.rs
+@@ -929,6 +929,10 @@ pub fn region_constraints_added_in_snapshot(
+             .region_constraints_added_in_snapshot(&snapshot.undo_snapshot)
+     }
+ 
++    pub fn opaque_types_added_in_snapshot(&self, snapshot: &CombinedSnapshot<'a, 'tcx>) -> bool {
++        self.inner.borrow().undo_log.opaque_types_in_snapshot(&snapshot.undo_snapshot)
++    }
++
+     pub fn add_given(&self, sub: ty::Region<'tcx>, sup: ty::RegionVid) {
+         self.inner.borrow_mut().unwrap_region_constraints().add_given(sub, sup);
+     }
+diff --git a/compiler/rustc_infer/src/infer/undo_log.rs b/compiler/rustc_infer/src/infer/undo_log.rs
+index 1b696f21cbcf..74a26ebc39f8 100644
+--- a/compiler/rustc_infer/src/infer/undo_log.rs
++++ b/compiler/rustc_infer/src/infer/undo_log.rs
+@@ -185,6 +185,10 @@ pub(crate) fn region_constraints_in_snapshot(
+         })
+     }
+ 
++    pub(crate) fn opaque_types_in_snapshot(&self, s: &Snapshot<'tcx>) -> bool {
++        self.logs[s.undo_len..].iter().any(|log| matches!(log, UndoLog::OpaqueTypes(..)))
++    }
++
+     pub(crate) fn region_constraints(
+         &self,
+     ) -> impl Iterator<Item = &'_ region_constraints::UndoLog<'tcx>> + Clone {
+diff --git a/compiler/rustc_middle/src/traits/select.rs b/compiler/rustc_middle/src/traits/select.rs
+index ffa70cddbd59..025059fcbcfb 100644
+--- a/compiler/rustc_middle/src/traits/select.rs
++++ b/compiler/rustc_middle/src/traits/select.rs
+@@ -174,6 +174,10 @@ pub enum SelectionCandidate<'tcx> {
+ pub enum EvaluationResult {
+     /// Evaluation successful.
+     EvaluatedToOk,
++    /// Evaluation successful, but need to rerun because opaque types got
++    /// hidden types assigned without it being known whether the opaque types
++    /// are within their defining scope
++    EvaluatedToOkModuloOpaqueTypes,
+     /// Evaluation successful, but there were unevaluated region obligations.
+     EvaluatedToOkModuloRegions,
+     /// Evaluation is known to be ambiguous -- it *might* hold for some
+@@ -252,9 +256,11 @@ pub fn must_apply_modulo_regions(self) -> bool {
+ 
+     pub fn may_apply(self) -> bool {
+         match self {
+-            EvaluatedToOk | EvaluatedToOkModuloRegions | EvaluatedToAmbig | EvaluatedToUnknown => {
+-                true
+-            }
++            EvaluatedToOkModuloOpaqueTypes
++            | EvaluatedToOk
++            | EvaluatedToOkModuloRegions
++            | EvaluatedToAmbig
++            | EvaluatedToUnknown => true,
+ 
+             EvaluatedToErr | EvaluatedToRecur => false,
+         }
+@@ -264,7 +270,11 @@ pub fn is_stack_dependent(self) -> bool {
+         match self {
+             EvaluatedToUnknown | EvaluatedToRecur => true,
+ 
+-            EvaluatedToOk | EvaluatedToOkModuloRegions | EvaluatedToAmbig | EvaluatedToErr => false,
++            EvaluatedToOkModuloOpaqueTypes
++            | EvaluatedToOk
++            | EvaluatedToOkModuloRegions
++            | EvaluatedToAmbig
++            | EvaluatedToErr => false,
+         }
+     }
+ }
+diff --git a/compiler/rustc_middle/src/ty/flags.rs b/compiler/rustc_middle/src/ty/flags.rs
+index 63b1352e66b8..7a3d615862cb 100644
+--- a/compiler/rustc_middle/src/ty/flags.rs
++++ b/compiler/rustc_middle/src/ty/flags.rs
+@@ -207,11 +207,6 @@ fn add_kind(&mut self, kind: &ty::TyKind<'_>) {
+ 
+             &ty::FnDef(_, substs) => {
+                 self.add_substs(substs);
+-                // HACK(#98608, oli-obk): Function items with opaque types in their signature will
+-                // end up not having the HAS_TY_OPAQUE flag set, causing `evaluate_obligation` to
+-                // optimistically assume the function item matches any signature. See documentation
+-                // on `HAS_FREE_LOCAL_NAMES` for details.
+-                self.add_flags(TypeFlags::HAS_TY_OPAQUE);
+             }
+ 
+             &ty::FnPtr(fn_sig) => self.bound_computation(fn_sig, |computation, fn_sig| {
+diff --git a/compiler/rustc_trait_selection/src/traits/error_reporting/suggestions.rs b/compiler/rustc_trait_selection/src/traits/error_reporting/suggestions.rs
+index d20ba99ebc9b..60cb5914dada 100644
+--- a/compiler/rustc_trait_selection/src/traits/error_reporting/suggestions.rs
++++ b/compiler/rustc_trait_selection/src/traits/error_reporting/suggestions.rs
+@@ -761,6 +761,7 @@ fn suggest_fn_call(
+             Ok(
+                 EvaluationResult::EvaluatedToOk
+                 | EvaluationResult::EvaluatedToOkModuloRegions
++                | EvaluationResult::EvaluatedToOkModuloOpaqueTypes
+                 | EvaluationResult::EvaluatedToAmbig,
+             ) => {}
+             _ => return false,
+diff --git a/compiler/rustc_trait_selection/src/traits/select/mod.rs b/compiler/rustc_trait_selection/src/traits/select/mod.rs
+index 1c9f83f8f340..ed4877638bff 100644
+--- a/compiler/rustc_trait_selection/src/traits/select/mod.rs
++++ b/compiler/rustc_trait_selection/src/traits/select/mod.rs
+@@ -388,6 +388,10 @@ fn evaluation_probe(
+                 Err(_) => return Ok(EvaluatedToErr),
+             }
+ 
++            if self.infcx.opaque_types_added_in_snapshot(snapshot) {
++                return Ok(result.max(EvaluatedToOkModuloOpaqueTypes));
++            }
++
+             match self.infcx.region_constraints_added_in_snapshot(snapshot) {
+                 None => Ok(result),
+                 Some(_) => Ok(result.max(EvaluatedToOkModuloRegions)),
+diff --git a/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.rs b/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.rs
+index 4bc0f9d92008..6c838f410036 100644
+--- a/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.rs
++++ b/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.rs
+@@ -3,7 +3,7 @@
+ type Foo = impl Fn() -> Foo;
+ 
+ fn foo() -> Foo {
+-    foo //~ ERROR: overflow evaluating the requirement `<fn() -> Foo {foo} as FnOnce<()>>::Output == fn() -> Foo {foo}`
++    foo //~ ERROR: overflow evaluating the requirement `fn() -> Foo {foo}: Sized`
+ }
+ 
+ fn main() {}
+diff --git a/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.stderr b/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.stderr
+index f69514b7808f..a9c2c18630c0 100644
+--- a/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.stderr
++++ b/src/test/ui/type-alias-impl-trait/issue-53398-cyclic-types.stderr
+@@ -1,8 +1,10 @@
+-error[E0275]: overflow evaluating the requirement `<fn() -> Foo {foo} as FnOnce<()>>::Output == fn() -> Foo {foo}`
++error[E0275]: overflow evaluating the requirement `fn() -> Foo {foo}: Sized`
+   --> $DIR/issue-53398-cyclic-types.rs:6:5
+    |
+ LL |     foo
+    |     ^^^
++   |
++   = help: consider increasing the recursion limit by adding a `#![recursion_limit = "256"]` attribute to your crate (`issue_53398_cyclic_types`)
+ 
+ error: aborting due to previous error
+ 
+-- 
+2.36.1
+
+
+From 74197dae66d15fdf202ce63481bc0b7d1a98b7cd Mon Sep 17 00:00:00 2001
+From: Oli Scherer <git-spam-no-reply9815368754983@oli-obk.de>
+Date: Fri, 1 Jul 2022 13:19:27 +0000
+Subject: [PATCH 4/7] Remove type flag based opaque type workaround
+
+(cherry picked from commit 58c08cd0373eaabfe05d9e78efa417075ef019fb)
+---
+ compiler/rustc_type_ir/src/lib.rs             |   8 --
+ src/test/ui/impl-trait/auto-trait-leak.rs     |   1 -
+ src/test/ui/impl-trait/auto-trait-leak.stderr | 112 +++---------------
+ .../auto-trait-leakage3.rs                    |   1 -
+ .../auto-trait-leakage3.stderr                |  27 +----
+ .../type-alias-impl-trait/inference-cycle.rs  |   1 -
+ .../inference-cycle.stderr                    |  27 +----
+ .../ui/type-alias-impl-trait/reveal_local.rs  |   1 -
+ .../type-alias-impl-trait/reveal_local.stderr |  33 +-----
+ 9 files changed, 30 insertions(+), 181 deletions(-)
+
+diff --git a/compiler/rustc_type_ir/src/lib.rs b/compiler/rustc_type_ir/src/lib.rs
+index c63e9c31d535..a46729f229e2 100644
+--- a/compiler/rustc_type_ir/src/lib.rs
++++ b/compiler/rustc_type_ir/src/lib.rs
+@@ -61,14 +61,6 @@ pub struct TypeFlags: u32 {
+                                           | TypeFlags::HAS_CT_INFER.bits
+                                           | TypeFlags::HAS_TY_PLACEHOLDER.bits
+                                           | TypeFlags::HAS_CT_PLACEHOLDER.bits
+-                                          // The `evaluate_obligation` query does not return further
+-                                          // obligations. If it evaluates an obligation with an opaque
+-                                          // type, that opaque type may get compared to another type,
+-                                          // constraining it. We would lose this information.
+-                                          // FIXME: differentiate between crate-local opaque types
+-                                          // and opaque types from other crates, as only opaque types
+-                                          // from the local crate can possibly be a local name
+-                                          | TypeFlags::HAS_TY_OPAQUE.bits
+                                           // We consider 'freshened' types and constants
+                                           // to depend on a particular fn.
+                                           // The freshening process throws away information,
+diff --git a/src/test/ui/impl-trait/auto-trait-leak.rs b/src/test/ui/impl-trait/auto-trait-leak.rs
+index d2452abab025..c2fbbf94fd66 100644
+--- a/src/test/ui/impl-trait/auto-trait-leak.rs
++++ b/src/test/ui/impl-trait/auto-trait-leak.rs
+@@ -11,7 +11,6 @@ fn main() {
+ // return type, which can't depend on the obligation.
+ fn cycle1() -> impl Clone {
+     //~^ ERROR cycle detected
+-    //~| ERROR cycle detected
+     send(cycle2().clone());
+ 
+     Rc::new(Cell::new(5))
+diff --git a/src/test/ui/impl-trait/auto-trait-leak.stderr b/src/test/ui/impl-trait/auto-trait-leak.stderr
+index 14db864f1c28..634ff14869eb 100644
+--- a/src/test/ui/impl-trait/auto-trait-leak.stderr
++++ b/src/test/ui/impl-trait/auto-trait-leak.stderr
+@@ -30,129 +30,47 @@ note: ...which requires building MIR for `cycle1`...
+ LL | fn cycle1() -> impl Clone {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+ note: ...which requires type-checking `cycle1`...
+-  --> $DIR/auto-trait-leak.rs:12:1
+-   |
+-LL | fn cycle1() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires computing type of `cycle2::{opaque#0}`...
+-  --> $DIR/auto-trait-leak.rs:20:16
+-   |
+-LL | fn cycle2() -> impl Clone {
+-   |                ^^^^^^^^^^
+-note: ...which requires borrow-checking `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
+-   |
+-LL | fn cycle2() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires processing `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
+-   |
+-LL | fn cycle2() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires processing MIR for `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
+-   |
+-LL | fn cycle2() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires unsafety-checking `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
+-   |
+-LL | fn cycle2() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires building MIR for `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
+-   |
+-LL | fn cycle2() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires type-checking `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
+-   |
+-LL | fn cycle2() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-   = note: ...which again requires computing type of `cycle1::{opaque#0}`, completing the cycle
+-note: cycle used when checking item types in top-level module
+-  --> $DIR/auto-trait-leak.rs:1:1
+-   |
+-LL | / use std::cell::Cell;
+-LL | | use std::rc::Rc;
+-LL | |
+-LL | | fn send<T: Send>(_: T) {}
+-...  |
+-LL | |     Rc::new(String::from("foo"))
+-LL | | }
+-   | |_^
+-
+-error[E0391]: cycle detected when computing type of `cycle1::{opaque#0}`
+-  --> $DIR/auto-trait-leak.rs:12:16
++  --> $DIR/auto-trait-leak.rs:14:5
+    |
+-LL | fn cycle1() -> impl Clone {
+-   |                ^^^^^^^^^^
+-   |
+-note: ...which requires borrow-checking `cycle1`...
+-  --> $DIR/auto-trait-leak.rs:12:1
+-   |
+-LL | fn cycle1() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires processing `cycle1`...
+-  --> $DIR/auto-trait-leak.rs:12:1
+-   |
+-LL | fn cycle1() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires processing MIR for `cycle1`...
+-  --> $DIR/auto-trait-leak.rs:12:1
+-   |
+-LL | fn cycle1() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires unsafety-checking `cycle1`...
+-  --> $DIR/auto-trait-leak.rs:12:1
+-   |
+-LL | fn cycle1() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires building MIR for `cycle1`...
+-  --> $DIR/auto-trait-leak.rs:12:1
+-   |
+-LL | fn cycle1() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+-note: ...which requires type-checking `cycle1`...
+-  --> $DIR/auto-trait-leak.rs:12:1
+-   |
+-LL | fn cycle1() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
++LL |     send(cycle2().clone());
++   |     ^^^^
++   = note: ...which requires evaluating trait selection obligation `impl core::clone::Clone: core::marker::Send`...
+ note: ...which requires computing type of `cycle2::{opaque#0}`...
+-  --> $DIR/auto-trait-leak.rs:20:16
++  --> $DIR/auto-trait-leak.rs:19:16
+    |
+ LL | fn cycle2() -> impl Clone {
+    |                ^^^^^^^^^^
+ note: ...which requires borrow-checking `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
++  --> $DIR/auto-trait-leak.rs:19:1
+    |
+ LL | fn cycle2() -> impl Clone {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+ note: ...which requires processing `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
++  --> $DIR/auto-trait-leak.rs:19:1
+    |
+ LL | fn cycle2() -> impl Clone {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+ note: ...which requires processing MIR for `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
++  --> $DIR/auto-trait-leak.rs:19:1
+    |
+ LL | fn cycle2() -> impl Clone {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+ note: ...which requires unsafety-checking `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
++  --> $DIR/auto-trait-leak.rs:19:1
+    |
+ LL | fn cycle2() -> impl Clone {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+ note: ...which requires building MIR for `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
++  --> $DIR/auto-trait-leak.rs:19:1
+    |
+ LL | fn cycle2() -> impl Clone {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+ note: ...which requires type-checking `cycle2`...
+-  --> $DIR/auto-trait-leak.rs:20:1
++  --> $DIR/auto-trait-leak.rs:20:5
+    |
+-LL | fn cycle2() -> impl Clone {
+-   | ^^^^^^^^^^^^^^^^^^^^^^^^^
++LL |     send(cycle1().clone());
++   |     ^^^^
++   = note: ...which requires evaluating trait selection obligation `impl core::clone::Clone: core::marker::Send`...
+    = note: ...which again requires computing type of `cycle1::{opaque#0}`, completing the cycle
+ note: cycle used when checking item types in top-level module
+   --> $DIR/auto-trait-leak.rs:1:1
+@@ -166,6 +84,6 @@ LL | |     Rc::new(String::from("foo"))
+ LL | | }
+    | |_^
+ 
+-error: aborting due to 2 previous errors
++error: aborting due to previous error
+ 
+ For more information about this error, try `rustc --explain E0391`.
+diff --git a/src/test/ui/type-alias-impl-trait/auto-trait-leakage3.rs b/src/test/ui/type-alias-impl-trait/auto-trait-leakage3.rs
+index b456b1445e78..5fb7a9473d3d 100644
+--- a/src/test/ui/type-alias-impl-trait/auto-trait-leakage3.rs
++++ b/src/test/ui/type-alias-impl-trait/auto-trait-leakage3.rs
+@@ -6,7 +6,6 @@
+ mod m {
+     type Foo = impl std::fmt::Debug;
+     //~^ ERROR: cycle detected when computing type of `m::Foo::{opaque#0}` [E0391]
+-    //~| ERROR: cycle detected when computing type of `m::Foo::{opaque#0}` [E0391]
+ 
+     pub fn foo() -> Foo {
+         22_u32
+diff --git a/src/test/ui/type-alias-impl-trait/auto-trait-leakage3.stderr b/src/test/ui/type-alias-impl-trait/auto-trait-leakage3.stderr
+index 4c44875b4a54..1e9a45aac79e 100644
+--- a/src/test/ui/type-alias-impl-trait/auto-trait-leakage3.stderr
++++ b/src/test/ui/type-alias-impl-trait/auto-trait-leakage3.stderr
+@@ -5,10 +5,11 @@ LL |     type Foo = impl std::fmt::Debug;
+    |                ^^^^^^^^^^^^^^^^^^^^
+    |
+ note: ...which requires type-checking `m::bar`...
+-  --> $DIR/auto-trait-leakage3.rs:15:5
++  --> $DIR/auto-trait-leakage3.rs:15:9
+    |
+-LL |     pub fn bar() {
+-   |     ^^^^^^^^^^^^
++LL |         is_send(foo());
++   |         ^^^^^^^
++   = note: ...which requires evaluating trait selection obligation `m::Foo: core::marker::Send`...
+    = note: ...which again requires computing type of `m::Foo::{opaque#0}`, completing the cycle
+ note: cycle used when checking item types in module `m`
+   --> $DIR/auto-trait-leakage3.rs:6:1
+@@ -16,24 +17,6 @@ note: cycle used when checking item types in module `m`
+ LL | mod m {
+    | ^^^^^
+ 
+-error[E0391]: cycle detected when computing type of `m::Foo::{opaque#0}`
+-  --> $DIR/auto-trait-leakage3.rs:7:16
+-   |
+-LL |     type Foo = impl std::fmt::Debug;
+-   |                ^^^^^^^^^^^^^^^^^^^^
+-   |
+-note: ...which requires type-checking `m::bar`...
+-  --> $DIR/auto-trait-leakage3.rs:15:5
+-   |
+-LL |     pub fn bar() {
+-   |     ^^^^^^^^^^^^
+-   = note: ...which again requires computing type of `m::Foo::{opaque#0}`, completing the cycle
+-note: cycle used when checking item types in module `m`
+-  --> $DIR/auto-trait-leakage3.rs:6:1
+-   |
+-LL | mod m {
+-   | ^^^^^
+-
+-error: aborting due to 2 previous errors
++error: aborting due to previous error
+ 
+ For more information about this error, try `rustc --explain E0391`.
+diff --git a/src/test/ui/type-alias-impl-trait/inference-cycle.rs b/src/test/ui/type-alias-impl-trait/inference-cycle.rs
+index 608572978a35..79caddf79132 100644
+--- a/src/test/ui/type-alias-impl-trait/inference-cycle.rs
++++ b/src/test/ui/type-alias-impl-trait/inference-cycle.rs
+@@ -4,7 +4,6 @@
+ mod m {
+     type Foo = impl std::fmt::Debug;
+     //~^ ERROR cycle detected
+-    //~| ERROR cycle detected
+ 
+     // Cycle: error today, but it'd be nice if it eventually worked
+ 
+diff --git a/src/test/ui/type-alias-impl-trait/inference-cycle.stderr b/src/test/ui/type-alias-impl-trait/inference-cycle.stderr
+index 3ed86fae8a18..b9d646b927a6 100644
+--- a/src/test/ui/type-alias-impl-trait/inference-cycle.stderr
++++ b/src/test/ui/type-alias-impl-trait/inference-cycle.stderr
+@@ -5,10 +5,11 @@ LL |     type Foo = impl std::fmt::Debug;
+    |                ^^^^^^^^^^^^^^^^^^^^
+    |
+ note: ...which requires type-checking `m::bar`...
+-  --> $DIR/inference-cycle.rs:15:5
++  --> $DIR/inference-cycle.rs:15:9
+    |
+-LL |     pub fn bar() {
+-   |     ^^^^^^^^^^^^
++LL |         is_send(foo()); // Today: error
++   |         ^^^^^^^
++   = note: ...which requires evaluating trait selection obligation `m::Foo: core::marker::Send`...
+    = note: ...which again requires computing type of `m::Foo::{opaque#0}`, completing the cycle
+ note: cycle used when checking item types in module `m`
+   --> $DIR/inference-cycle.rs:4:1
+@@ -16,24 +17,6 @@ note: cycle used when checking item types in module `m`
+ LL | mod m {
+    | ^^^^^
+ 
+-error[E0391]: cycle detected when computing type of `m::Foo::{opaque#0}`
+-  --> $DIR/inference-cycle.rs:5:16
+-   |
+-LL |     type Foo = impl std::fmt::Debug;
+-   |                ^^^^^^^^^^^^^^^^^^^^
+-   |
+-note: ...which requires type-checking `m::bar`...
+-  --> $DIR/inference-cycle.rs:15:5
+-   |
+-LL |     pub fn bar() {
+-   |     ^^^^^^^^^^^^
+-   = note: ...which again requires computing type of `m::Foo::{opaque#0}`, completing the cycle
+-note: cycle used when checking item types in module `m`
+-  --> $DIR/inference-cycle.rs:4:1
+-   |
+-LL | mod m {
+-   | ^^^^^
+-
+-error: aborting due to 2 previous errors
++error: aborting due to previous error
+ 
+ For more information about this error, try `rustc --explain E0391`.
+diff --git a/src/test/ui/type-alias-impl-trait/reveal_local.rs b/src/test/ui/type-alias-impl-trait/reveal_local.rs
+index 145186baa1fa..7ecb55353010 100644
+--- a/src/test/ui/type-alias-impl-trait/reveal_local.rs
++++ b/src/test/ui/type-alias-impl-trait/reveal_local.rs
+@@ -4,7 +4,6 @@
+ 
+ type Foo = impl Debug;
+ //~^ ERROR cycle detected
+-//~| ERROR cycle detected
+ 
+ fn is_send<T: Send>() { }
+ 
+diff --git a/src/test/ui/type-alias-impl-trait/reveal_local.stderr b/src/test/ui/type-alias-impl-trait/reveal_local.stderr
+index 5d48dd5b2bf7..27fded333292 100644
+--- a/src/test/ui/type-alias-impl-trait/reveal_local.stderr
++++ b/src/test/ui/type-alias-impl-trait/reveal_local.stderr
+@@ -5,10 +5,11 @@ LL | type Foo = impl Debug;
+    |            ^^^^^^^^^^
+    |
+ note: ...which requires type-checking `not_good`...
+-  --> $DIR/reveal_local.rs:11:1
++  --> $DIR/reveal_local.rs:13:5
+    |
+-LL | fn not_good() {
+-   | ^^^^^^^^^^^^^
++LL |     is_send::<Foo>();
++   |     ^^^^^^^^^^^^^^
++   = note: ...which requires evaluating trait selection obligation `Foo: core::marker::Send`...
+    = note: ...which again requires computing type of `Foo::{opaque#0}`, completing the cycle
+ note: cycle used when checking item types in top-level module
+   --> $DIR/reveal_local.rs:1:1
+@@ -22,30 +23,6 @@ LL | |
+ LL | | fn main() {}
+    | |____________^
+ 
+-error[E0391]: cycle detected when computing type of `Foo::{opaque#0}`
+-  --> $DIR/reveal_local.rs:5:12
+-   |
+-LL | type Foo = impl Debug;
+-   |            ^^^^^^^^^^
+-   |
+-note: ...which requires type-checking `not_gooder`...
+-  --> $DIR/reveal_local.rs:17:1
+-   |
+-LL | fn not_gooder() {
+-   | ^^^^^^^^^^^^^^^
+-   = note: ...which again requires computing type of `Foo::{opaque#0}`, completing the cycle
+-note: cycle used when checking item types in top-level module
+-  --> $DIR/reveal_local.rs:1:1
+-   |
+-LL | / #![feature(type_alias_impl_trait)]
+-LL | |
+-LL | | use std::fmt::Debug;
+-LL | |
+-...  |
+-LL | |
+-LL | | fn main() {}
+-   | |____________^
+-
+-error: aborting due to 2 previous errors
++error: aborting due to previous error
+ 
+ For more information about this error, try `rustc --explain E0391`.
+-- 
+2.36.1
+
+
+From 60ea1625bffb09786a8ed9c1d4db52312d2675df Mon Sep 17 00:00:00 2001
+From: Oli Scherer <git-spam-no-reply9815368754983@oli-obk.de>
+Date: Thu, 7 Jul 2022 08:10:50 +0000
+Subject: [PATCH 5/7] not knowing about opaque types is worse than not knowing
+ about regions, make sure we don't accidentally mark something as
+ ok-modulo-regions if there are opaque types involved
+
+(cherry picked from commit 0b863e0024df84ca6f58bad3a7226e8d0ca6c5f6)
+---
+ compiler/rustc_middle/src/traits/select.rs | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/compiler/rustc_middle/src/traits/select.rs b/compiler/rustc_middle/src/traits/select.rs
+index 025059fcbcfb..854dd215a37c 100644
+--- a/compiler/rustc_middle/src/traits/select.rs
++++ b/compiler/rustc_middle/src/traits/select.rs
+@@ -174,12 +174,12 @@ pub enum SelectionCandidate<'tcx> {
+ pub enum EvaluationResult {
+     /// Evaluation successful.
+     EvaluatedToOk,
++    /// Evaluation successful, but there were unevaluated region obligations.
++    EvaluatedToOkModuloRegions,
+     /// Evaluation successful, but need to rerun because opaque types got
+     /// hidden types assigned without it being known whether the opaque types
+     /// are within their defining scope
+     EvaluatedToOkModuloOpaqueTypes,
+-    /// Evaluation successful, but there were unevaluated region obligations.
+-    EvaluatedToOkModuloRegions,
+     /// Evaluation is known to be ambiguous -- it *might* hold for some
+     /// assignment of inference variables, but it might not.
+     ///
+-- 
+2.36.1
+
+
+From 735b8590e78ffe0b0e0083ea08d75d03b92c43fb Mon Sep 17 00:00:00 2001
+From: Oli Scherer <git-spam-no-reply9815368754983@oli-obk.de>
+Date: Fri, 8 Jul 2022 13:59:44 +0000
+Subject: [PATCH 6/7] Only register hidden types for opaque types from the
+ current crate, nothing else would work anyway.
+
+(cherry picked from commit d6b93eb79352149bae0fd1efc0bb181947a9e6f1)
+---
+ compiler/rustc_infer/src/infer/opaque_types.rs | 2 +-
+ compiler/rustc_middle/src/ty/mod.rs            | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/compiler/rustc_infer/src/infer/opaque_types.rs b/compiler/rustc_infer/src/infer/opaque_types.rs
+index 92c0ed84057a..3b9b6f7a2af9 100644
+--- a/compiler/rustc_infer/src/infer/opaque_types.rs
++++ b/compiler/rustc_infer/src/infer/opaque_types.rs
+@@ -99,7 +99,7 @@ pub fn handle_opaque_type(
+         }
+         let (a, b) = if a_is_expected { (a, b) } else { (b, a) };
+         let process = |a: Ty<'tcx>, b: Ty<'tcx>| match *a.kind() {
+-            ty::Opaque(def_id, substs) => {
++            ty::Opaque(def_id, substs) if def_id.is_local() => {
+                 let origin = if self.defining_use_anchor.is_some() {
+                     // Check that this is `impl Trait` type is
+                     // declared by `parent_def_id` -- i.e., one whose
+diff --git a/compiler/rustc_middle/src/ty/mod.rs b/compiler/rustc_middle/src/ty/mod.rs
+index 1c552591b117..a254979162e8 100644
+--- a/compiler/rustc_middle/src/ty/mod.rs
++++ b/compiler/rustc_middle/src/ty/mod.rs
+@@ -1065,6 +1065,7 @@ pub fn is_empty(&self) -> bool {
+     Lift
+ )]
+ pub struct OpaqueTypeKey<'tcx> {
++    // FIXME(oli-obk): make this a LocalDefId
+     pub def_id: DefId,
+     pub substs: SubstsRef<'tcx>,
+ }
+-- 
+2.36.1
+
+
+From 1d4d0122ac5cbf7f4b948df36f7e315734c171b9 Mon Sep 17 00:00:00 2001
+From: Mark Rousskov <mark.simulacrum@gmail.com>
+Date: Sat, 9 Jul 2022 18:16:53 -0400
+Subject: [PATCH 7/7] Fix tests after beta backport
+
+(cherry picked from commit 5a81254ef29b968f15f5296568c4b985657e8c49)
+---
+ src/test/ui/type-alias-impl-trait/issue-98604.stderr | 2 +-
+ src/test/ui/type-alias-impl-trait/issue-98608.stderr | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/test/ui/type-alias-impl-trait/issue-98604.stderr b/src/test/ui/type-alias-impl-trait/issue-98604.stderr
+index f04d1b4d7877..ad3982760c39 100644
+--- a/src/test/ui/type-alias-impl-trait/issue-98604.stderr
++++ b/src/test/ui/type-alias-impl-trait/issue-98604.stderr
+@@ -11,7 +11,7 @@ LL | async fn test() {}
+    |                 ^ checked the `Output` of this `async fn`, found opaque type
+    = note:   expected struct `Pin<Box<(dyn Future<Output = ()> + 'static)>>`
+            found opaque type `impl Future<Output = ()>`
+-   = note: required for the cast from `fn() -> impl Future<Output = ()> {test}` to the object type `dyn Fn() -> Pin<Box<(dyn Future<Output = ()> + 'static)>>`
++   = note: required for the cast to the object type `dyn Fn() -> Pin<Box<(dyn Future<Output = ()> + 'static)>>`
+ 
+ error: aborting due to previous error
+ 
+diff --git a/src/test/ui/type-alias-impl-trait/issue-98608.stderr b/src/test/ui/type-alias-impl-trait/issue-98608.stderr
+index 8f3ec7d9d161..6773b01112d8 100644
+--- a/src/test/ui/type-alias-impl-trait/issue-98608.stderr
++++ b/src/test/ui/type-alias-impl-trait/issue-98608.stderr
+@@ -9,7 +9,7 @@ LL |     let b: Box<dyn Fn() -> Box<u8>> = Box::new(hi);
+    |
+    = note:   expected struct `Box<u8>`
+            found opaque type `impl Sized`
+-   = note: required for the cast from `fn() -> impl Sized {hi}` to the object type `dyn Fn() -> Box<u8>`
++   = note: required for the cast to the object type `dyn Fn() -> Box<u8>`
+ 
+ error: aborting due to previous error
+ 
+-- 
+2.36.1
+

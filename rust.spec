@@ -84,7 +84,7 @@
 
 Name:           rust
 Version:        1.62.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -105,6 +105,10 @@ Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
 
 # Set a substitute-path in rust-gdb for standard library sources.
 Patch2:         rustc-1.61.0-rust-gdb-substitute-path.patch
+
+# Prevent unsound coercions from functions with opaque return types.
+# https://github.com/rust-lang/rust/pull/98614
+Patch3:         rustc-1.62.0-pr98614.patch
 
 ### RHEL-specific patches below ###
 
@@ -571,6 +575,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -1029,6 +1034,9 @@ end}
 
 
 %changelog
+* Wed Jul 13 2022 Josh Stone <jistone@redhat.com> - 1.62.0-2
+- Prevent unsound coercions from functions with opaque return types.
+
 * Thu Jun 30 2022 Josh Stone <jistone@redhat.com> - 1.62.0-1
 - Update to 1.62.0.
 

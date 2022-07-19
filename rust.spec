@@ -83,7 +83,7 @@
 %endif
 
 Name:           rust
-Version:        1.62.0
+Version:        1.62.1
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -235,6 +235,9 @@ BuildRequires:  procps-ng
 
 # debuginfo-gdb tests need gdb
 BuildRequires:  gdb
+
+# For src/test/run-make/static-pie
+BuildRequires:  glibc-static
 
 # Virtual provides for folks who attempt "dnf install rustc"
 Provides:       rustc = %{version}-%{release}
@@ -1029,6 +1032,12 @@ end}
 
 
 %changelog
+* Tue Jul 19 2022 Josh Stone <jistone@redhat.com> - 1.62.1-1
+- Update to 1.62.1.
+
+* Wed Jul 13 2022 Josh Stone <jistone@redhat.com> - 1.62.0-2
+- Prevent unsound coercions from functions with opaque return types.
+
 * Thu Jun 30 2022 Josh Stone <jistone@redhat.com> - 1.62.0-1
 - Update to 1.62.0.
 

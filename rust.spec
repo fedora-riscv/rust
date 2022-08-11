@@ -8,9 +8,9 @@
 # To bootstrap from scratch, set the channel and date from src/stage0.json
 # e.g. 1.59.0 wants rustc: 1.58.0-2022-01-13
 # or nightly wants some beta-YYYY-MM-DD
-%global bootstrap_version 1.61.0
-%global bootstrap_channel 1.61.0
-%global bootstrap_date 2022-05-19
+%global bootstrap_version 1.62.0
+%global bootstrap_channel 1.62.0
+%global bootstrap_date 2022-06-30
 
 # Only the specified arches will use bootstrap binaries.
 # NOTE: Those binaries used to be uploaded with every new release, but that was
@@ -46,7 +46,7 @@
 # We can also choose to just use Rust's bundled LLVM, in case the system LLVM
 # is insufficient.  Rust currently requires LLVM 12.0+.
 %global min_llvm_version 12.0.0
-%global bundled_llvm_version 14.0.4
+%global bundled_llvm_version 14.0.5
 %bcond_with bundled_llvm
 
 # Requires stable libgit2 1.4, and not the next minor soname change.
@@ -83,7 +83,7 @@
 %endif
 
 Name:           rust
-Version:        1.62.1
+Version:        1.63.0
 Release:        1%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -116,7 +116,7 @@ Patch100:       rustc-1.59.0-disable-libssh2.patch
 
 # libcurl on RHEL7 doesn't have http2, but since cargo requests it, curl-sys
 # will try to build it statically -- instead we turn off the feature.
-Patch101:       rustc-1.62.0-disable-http2.patch
+Patch101:       rustc-1.63.0-disable-http2.patch
 
 # kernel rh1410097 causes too-small stacks for PIE.
 # (affects RHEL6 kernels when building for RHEL7)
@@ -630,7 +630,7 @@ ln -s /usr/bin/cmake3 cmake-bin/cmake
 # Static linking to distro LLVM needs to add -lffi
 # https://github.com/rust-lang/rust/issues/34486
 sed -i.ffi -e '$a #[link(name = "ffi")] extern {}' \
-  src/librustc_llvm/lib.rs
+  compiler/rustc_llvm/src/lib.rs
 %endif
 
 # The configure macro will modify some autoconf-related files, which upsets
@@ -1032,6 +1032,12 @@ end}
 
 
 %changelog
+* Thu Aug 11 2022 Josh Stone <jistone@redhat.com> - 1.63.0-1
+- Update to 1.63.0.
+
+* Sat Jul 23 2022 Fedora Release Engineering <releng@fedoraproject.org> - 1.62.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_37_Mass_Rebuild
+
 * Tue Jul 19 2022 Josh Stone <jistone@redhat.com> - 1.62.1-1
 - Update to 1.62.1.
 

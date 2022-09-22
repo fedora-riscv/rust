@@ -1,0 +1,53 @@
+From 2946828fcb8e2e68a16839dfcf4319bf119f8acd Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Tue, 20 Sep 2022 13:03:43 -0700
+Subject: [PATCH] rustc_transmute: fix big-endian discriminants
+
+(cherry picked from commit a72666ed56ec5f1b6d254c7020cf86143edc6dbd)
+---
+ compiler/rustc_transmute/src/layout/tree.rs | 22 +++++++++++++++------
+ 1 file changed, 16 insertions(+), 6 deletions(-)
+
+diff --git a/compiler/rustc_transmute/src/layout/tree.rs b/compiler/rustc_transmute/src/layout/tree.rs
+index 70b3ba02b05b..e4fcde35ed37 100644
+--- a/compiler/rustc_transmute/src/layout/tree.rs
++++ b/compiler/rustc_transmute/src/layout/tree.rs
+@@ -402,7 +402,7 @@ fn from_repr_c_variant(
+                 .unwrap();
+                 tracing::trace!(?discr_layout, "computed discriminant layout");
+                 variant_layout = variant_layout.extend(discr_layout).unwrap().0;
+-                tree = tree.then(Self::from_disr(discr, tcx, layout_summary.discriminant_size));
++                tree = tree.then(Self::from_discr(discr, tcx, layout_summary.discriminant_size));
+             }
+ 
+             // Next come fields.
+@@ -442,11 +442,21 @@ fn from_repr_c_variant(
+             Ok(tree)
+         }
+ 
+-        pub fn from_disr(discr: Discr<'tcx>, tcx: TyCtxt<'tcx>, size: usize) -> Self {
+-            // FIXME(@jswrenn): I'm certain this is missing needed endian nuance.
+-            let bytes = discr.val.to_ne_bytes();
+-            let bytes = &bytes[..size];
+-            Self::Seq(bytes.into_iter().copied().map(|b| Self::from_bits(b)).collect())
++        pub fn from_discr(discr: Discr<'tcx>, tcx: TyCtxt<'tcx>, size: usize) -> Self {
++            use rustc_target::abi::Endian;
++
++            let bytes: [u8; 16];
++            let bytes = match tcx.data_layout.endian {
++                Endian::Little => {
++                    bytes = discr.val.to_le_bytes();
++                    &bytes[..size]
++                }
++                Endian::Big => {
++                    bytes = discr.val.to_be_bytes();
++                    &bytes[bytes.len() - size..]
++                }
++            };
++            Self::Seq(bytes.iter().map(|&b| Self::from_bits(b)).collect())
+         }
+     }
+ 
+-- 
+2.37.3
+

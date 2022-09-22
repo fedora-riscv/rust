@@ -1,8 +1,8 @@
 diff --git a/compiler/rustc_codegen_ssa/src/back/link.rs b/compiler/rustc_codegen_ssa/src/back/link.rs
-index 638b2a7b5a9f..79d4ecf4cb91 100644
+index 63207803e327..f5757760c409 100644
 --- a/compiler/rustc_codegen_ssa/src/back/link.rs
 +++ b/compiler/rustc_codegen_ssa/src/back/link.rs
-@@ -763,7 +763,7 @@ fn link_natively<'a, B: ArchiveBuilder<'a>>(
+@@ -741,7 +741,7 @@ fn link_natively<'a>(
              && cmd.get_args().iter().any(|e| e.to_string_lossy() == "-no-pie")
          {
              info!("linker output: {:?}", out);
@@ -11,7 +11,7 @@ index 638b2a7b5a9f..79d4ecf4cb91 100644
              for arg in cmd.take_args() {
                  if arg.to_string_lossy() != "-no-pie" {
                      cmd.arg(arg);
-@@ -782,7 +782,7 @@ fn link_natively<'a, B: ArchiveBuilder<'a>>(
+@@ -760,7 +760,7 @@ fn link_natively<'a>(
              && cmd.get_args().iter().any(|e| e.to_string_lossy() == "-static-pie")
          {
              info!("linker output: {:?}", out);
@@ -20,12 +20,13 @@ index 638b2a7b5a9f..79d4ecf4cb91 100644
                  "Linker does not support -static-pie command line option. Retrying with -static instead."
              );
              // Mirror `add_(pre,post)_link_objects` to replace CRT objects.
-@@ -1507,15 +1507,14 @@ fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+@@ -1507,15 +1507,15 @@ fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
  }
  
  fn link_output_kind(sess: &Session, crate_type: CrateType) -> LinkOutputKind {
 -    let kind = match (crate_type, sess.crt_static(Some(crate_type)), sess.relocation_model()) {
 +    // Only use PIE if explicitly specified.
++    #[cfg_attr(not(bootstrap), allow(rustc::bad_opt_access))]
 +    let explicit_pic =
 +        matches!(sess.opts.cg.relocation_model, Some(RelocModel::Pic | RelocModel::Pie));
 +    let kind = match (crate_type, sess.crt_static(Some(crate_type)), explicit_pic) {

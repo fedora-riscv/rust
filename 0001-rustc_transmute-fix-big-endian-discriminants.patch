@@ -1,27 +1,26 @@
-From 2946828fcb8e2e68a16839dfcf4319bf119f8acd Mon Sep 17 00:00:00 2001
+From a72666ed56ec5f1b6d254c7020cf86143edc6dbd Mon Sep 17 00:00:00 2001
 From: Josh Stone <jistone@redhat.com>
 Date: Tue, 20 Sep 2022 13:03:43 -0700
 Subject: [PATCH] rustc_transmute: fix big-endian discriminants
 
-(cherry picked from commit a72666ed56ec5f1b6d254c7020cf86143edc6dbd)
 ---
  compiler/rustc_transmute/src/layout/tree.rs | 22 +++++++++++++++------
  1 file changed, 16 insertions(+), 6 deletions(-)
 
 diff --git a/compiler/rustc_transmute/src/layout/tree.rs b/compiler/rustc_transmute/src/layout/tree.rs
-index 70b3ba02b05b..e4fcde35ed37 100644
+index 211c813b8001..acd4fa63d782 100644
 --- a/compiler/rustc_transmute/src/layout/tree.rs
 +++ b/compiler/rustc_transmute/src/layout/tree.rs
-@@ -402,7 +402,7 @@ fn from_repr_c_variant(
+@@ -404,7 +404,7 @@ fn from_repr_c_variant(
                  .unwrap();
-                 tracing::trace!(?discr_layout, "computed discriminant layout");
+                 trace!(?discr_layout, "computed discriminant layout");
                  variant_layout = variant_layout.extend(discr_layout).unwrap().0;
 -                tree = tree.then(Self::from_disr(discr, tcx, layout_summary.discriminant_size));
 +                tree = tree.then(Self::from_discr(discr, tcx, layout_summary.discriminant_size));
              }
  
              // Next come fields.
-@@ -442,11 +442,21 @@ fn from_repr_c_variant(
+@@ -444,11 +444,21 @@ fn from_repr_c_variant(
              Ok(tree)
          }
  

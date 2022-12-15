@@ -1,4 +1,4 @@
-From 92b0b20e4119241aaeabb4b91189a9fca8ff8b5d Mon Sep 17 00:00:00 2001
+From 2bdbc5fbf7f84c62f8c7b1007f3b6fd6d3da06f6 Mon Sep 17 00:00:00 2001
 From: Josh Stone <jistone@redhat.com>
 Date: Fri, 14 Oct 2022 16:11:28 -0700
 Subject: [PATCH] compiletest: set the dylib path when gathering target cfg
@@ -18,15 +18,15 @@ command for getting the target cfg.
 
 Now the library path is set here as well, so it works without rpath.
 
-(cherry picked from commit 97c3608326d123f5462e3504409a3a069611c0fb)
+(cherry picked from commit f8a0cc2ca8a644ddb63867526711ba17cb7508c8)
 ---
- src/tools/compiletest/src/common.rs  | 17 ++++++++++-------
+ src/tools/compiletest/src/common.rs  | 20 +++++++++++---------
  src/tools/compiletest/src/runtest.rs | 27 +++------------------------
  src/tools/compiletest/src/util.rs    | 23 +++++++++++++++++++++++
- 3 files changed, 36 insertions(+), 31 deletions(-)
+ 3 files changed, 37 insertions(+), 33 deletions(-)
 
 diff --git a/src/tools/compiletest/src/common.rs b/src/tools/compiletest/src/common.rs
-index 64df76e27720..53b64e7d1fc3 100644
+index 0260f6848386..9a432f11f82f 100644
 --- a/src/tools/compiletest/src/common.rs
 +++ b/src/tools/compiletest/src/common.rs
 @@ -2,11 +2,12 @@
@@ -43,20 +43,21 @@ index 64df76e27720..53b64e7d1fc3 100644
  use lazycell::LazyCell;
  use test::ColorConfig;
  
-@@ -389,7 +390,7 @@ pub fn run_enabled(&self) -> bool {
+@@ -385,8 +386,7 @@ pub fn run_enabled(&self) -> bool {
      }
  
      fn target_cfg(&self) -> &TargetCfg {
--        self.target_cfg.borrow_with(|| TargetCfg::new(&self.rustc_path, &self.target))
+-        self.target_cfg
+-            .borrow_with(|| TargetCfg::new(&self.rustc_path, &self.target, &self.target_rustcflags))
 +        self.target_cfg.borrow_with(|| TargetCfg::new(self))
      }
  
      pub fn matches_arch(&self, arch: &str) -> bool {
-@@ -455,20 +456,22 @@ pub enum Endian {
+@@ -457,21 +457,23 @@ pub enum Endian {
  }
  
  impl TargetCfg {
--    fn new(rustc_path: &Path, target: &str) -> TargetCfg {
+-    fn new(rustc_path: &Path, target: &str, target_rustcflags: &Vec<String>) -> TargetCfg {
 -        let output = match Command::new(rustc_path)
 +    fn new(config: &Config) -> TargetCfg {
 +        let mut command = Command::new(&config.rustc_path);
@@ -65,7 +66,9 @@ index 64df76e27720..53b64e7d1fc3 100644
              .arg("--print=cfg")
              .arg("--target")
 -            .arg(target)
+-            .args(target_rustcflags)
 +            .arg(&config.target)
++            .args(&config.target_rustcflags)
              .output()
          {
              Ok(output) => output,
@@ -81,7 +84,7 @@ index 64df76e27720..53b64e7d1fc3 100644
                  String::from_utf8(output.stderr).unwrap(),
              );
 diff --git a/src/tools/compiletest/src/runtest.rs b/src/tools/compiletest/src/runtest.rs
-index 8f289876f730..eb467170249d 100644
+index 8af5f1da694b..f8903f754f09 100644
 --- a/src/tools/compiletest/src/runtest.rs
 +++ b/src/tools/compiletest/src/runtest.rs
 @@ -13,7 +13,7 @@
@@ -121,7 +124,7 @@ index 8f289876f730..eb467170249d 100644
  /// The platform-specific library name
  pub fn get_lib_name(lib: &str, dylib: bool) -> String {
      // In some casess (e.g. MUSL), we build a static
-@@ -1826,16 +1814,7 @@ fn compose_and_run(
+@@ -1811,16 +1799,7 @@ fn compose_and_run(
  
          // Need to be sure to put both the lib_path and the aux path in the dylib
          // search path for the child.
@@ -140,7 +143,7 @@ index 8f289876f730..eb467170249d 100644
          let mut child = disable_error_reporting(|| command.spawn())
              .unwrap_or_else(|_| panic!("failed to exec `{:?}`", &command));
 diff --git a/src/tools/compiletest/src/util.rs b/src/tools/compiletest/src/util.rs
-index 9d047b63c859..4b73be0fbb90 100644
+index e5ff0906be8a..ec36f1e4fb72 100644
 --- a/src/tools/compiletest/src/util.rs
 +++ b/src/tools/compiletest/src/util.rs
 @@ -2,6 +2,7 @@
@@ -151,7 +154,7 @@ index 9d047b63c859..4b73be0fbb90 100644
  
  use tracing::*;
  
-@@ -105,3 +106,25 @@ fn with_extra_extension<S: AsRef<OsStr>>(&self, extension: S) -> PathBuf {
+@@ -111,3 +112,25 @@ fn with_extra_extension<S: AsRef<OsStr>>(&self, extension: S) -> PathBuf {
          }
      }
  }
@@ -178,5 +181,5 @@ index 9d047b63c859..4b73be0fbb90 100644
 +    cmd.env(dylib_env_var(), env::join_paths(new_paths).unwrap());
 +}
 -- 
-2.37.3
+2.38.1
 

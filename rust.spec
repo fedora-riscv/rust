@@ -17,7 +17,7 @@
 # a waste of lookaside cache space when they're most often unused.
 # Run "spectool -g rust.spec" after changing this and then "fedpkg upload" to
 # add them to sources. Remember to remove them again after the bootstrap build!
-#global bootstrap_arches %%{rust_arches}
+%global bootstrap_arches %%{rust_arches}
 
 # Define a space-separated list of targets to ship rust-std-static-$triple for
 # cross-compilation. The packages are noarch, but they're not fully
@@ -84,7 +84,7 @@
 
 Name:           rust
 Version:        1.66.0
-Release:        1.rv64%{?dist}
+Release:        1.rv64~bootstrap%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -1061,6 +1061,9 @@ end}
 
 
 %changelog
+* Tue Jan 10 2023 Liu Yang <Yang.Liu.sn@gmail.com> - 1.66.0-1.rv64
+- Boostrap 1.66 while 1.65 wasn't built on riscv64.
+
 * Tue Jan 10 2023 Liu Yang <Yang.Liu.sn@gmail.com> - 1.66.0-1.rv64
 - Fix building on riscv64.
 

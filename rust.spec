@@ -1,6 +1,6 @@
 # Only x86_64 and i686 are Tier 1 platforms at this time.
 # https://doc.rust-lang.org/nightly/rustc/platform-support.html
-%global rust_arches x86_64 i686 armv7hl aarch64 ppc64le s390x
+%global rust_arches x86_64 i686 armv7hl aarch64 ppc64le s390x riscv64
 
 # The channel can be stable, beta, or nightly
 %{!?channel: %global channel stable}
@@ -84,7 +84,7 @@
 
 Name:           rust
 Version:        1.66.0
-Release:        1%{?dist}
+Release:        1.rv64%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -784,6 +784,11 @@ done
 # The rls stub doesn't have an install target, but we can just copy it.
 %{__install} -t %{buildroot}%{_bindir} build/%{rust_triple}/stage2-tools-bin/rls
 
+# rust-analyzer installing missing on riscv64
+%ifarch riscv64
+%{__install} -t %{buildroot}%{_bindir} build/%{rust_triple}/stage2-tools-bin/rust-analyzer
+%endif
+
 # These are transient files used by x.py dist and install
 rm -rf ./build/dist/ ./build/tmp/
 
@@ -1056,6 +1061,9 @@ end}
 
 
 %changelog
+* Tue Jan 10 2023 Liu Yang <Yang.Liu.sn@gmail.com> - 1.66.0-1.rv64
+- Fix building on riscv64.
+
 * Thu Dec 15 2022 Josh Stone <jistone@redhat.com> - 1.66.0-1
 - Update to 1.66.0.
 

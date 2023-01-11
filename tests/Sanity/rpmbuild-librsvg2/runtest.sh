@@ -48,7 +48,10 @@ rlJournalStart
         rlRun "rpm -ivh $SRPM"
         rlRun SPECDIR="$(rpm -E '%{_specdir}')"
 
-        rlRun "yum-builddep -y ${SPECDIR}/${PKG_TO_BUILD}.spec ${YUM_SWITCHES}"
+        # librsvg2 contains dynamic dependencies. builddep needs to be run
+        # from the srpm (not the spec file) to be able to generate them:
+        # https://fedoraproject.org/wiki/Changes/DynamicBuildRequires#rpmbuild
+        rlRun "yum-builddep -y ${SRPM} ${YUM_SWITCHES}"
     rlPhaseEnd
 
     rlPhaseStartTest

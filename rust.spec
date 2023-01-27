@@ -84,7 +84,7 @@
 
 Name:           rust
 Version:        1.67.0
-Release:        2awb%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)

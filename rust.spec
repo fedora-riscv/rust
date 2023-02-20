@@ -552,8 +552,9 @@ data to provide information about the Rust standard library.
 
 %package toolset
 Summary:        Rust Toolset
-Requires:       rust%{?_isa} = %{version}-%{release}
-Requires:       cargo%{?_isa} = %{version}-%{release}
+BuildArch:      noarch
+Requires:       rust = %{version}-%{release}
+Requires:       cargo = %{version}-%{release}
 
 %description toolset
 This is the metapackage for Rust Toolset, bringing in the Rust compiler,

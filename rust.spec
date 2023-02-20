@@ -84,7 +84,7 @@
 
 Name:           rust
 Version:        1.67.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -548,7 +548,7 @@ feature for the Rust standard library. The RLS (Rust Language Server) uses this
 data to provide information about the Rust standard library.
 
 
-%if 0%{?rhel} && 0%{?rhel} >= 8
+%if 0%{?rhel}
 
 %package toolset
 Summary:        Rust Toolset
@@ -846,7 +846,7 @@ rm -f %{buildroot}%{rustlibdir}/etc/lldb_*
 # We don't want Rust copies of LLVM tools (rust-lld, rust-llvm-dwp)
 rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 
-%if 0%{?rhel} && 0%{?rhel} >= 8
+%if 0%{?rhel}
 # This allows users to build packages using Rust Toolset.
 %{__install} -D -m 644 %{S:100} %{buildroot}%{rpmmacrodir}/macros.rust-toolset
 %endif
@@ -1033,13 +1033,16 @@ end}
 %{rustlibdir}/%{rust_triple}/analysis/
 
 
-%if 0%{?rhel} && 0%{?rhel} >= 8
+%if 0%{?rhel}
 %files toolset
 %{rpmmacrodir}/macros.rust-toolset
 %endif
 
 
 %changelog
+* Mon Feb 20 2023 Orion Poplawski <orion@nwra.com> - 1.67.1-2
+- Ship rust-toolset for EPEL7
+
 * Thu Feb 09 2023 Josh Stone <jistone@redhat.com> - 1.67.1-1
 - Update to 1.67.1.
 

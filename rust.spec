@@ -84,7 +84,7 @@
 
 Name:           rust
 Version:        1.67.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -330,6 +330,7 @@ This package includes the Rust compiler and documentation generator.
 
 %package std-static
 Summary:        Standard library for Rust
+Provides:       %{name}-std-static-%{rust_triple} = %{version}-%{release}
 Requires:       %{name} = %{version}-%{release}
 Requires:       glibc-devel%{?_isa} >= 2.11
 
@@ -1041,6 +1042,9 @@ end}
 
 
 %changelog
+* Tue Mar 07 2023 David Michael <fedora.dm0@gmail.com> - 1.67.1-3
+- Add a virtual Provides to rust-std-static containing the target triple.
+
 * Mon Feb 20 2023 Orion Poplawski <orion@nwra.com> - 1.67.1-2
 - Ship rust-toolset for EPEL7
 

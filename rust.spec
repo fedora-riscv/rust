@@ -83,7 +83,7 @@
 %endif
 
 Name:           rust
-Version:        1.68.1
+Version:        1.68.2
 Release:        1.rv64%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -1048,8 +1048,11 @@ end}
 
 
 %changelog
-* Fri Mar 24 2023 Liu Yang <Yang.Liu.sn@gmail.com> - 1.68.1-1.rv64
+* Fri Mar 24 2023 Liu Yang <Yang.Liu.sn@gmail.com> - 1.68.2-1.rv64
 - Fix building on riscv64.
+
+* Tue Mar 28 2023 Josh Stone <jistone@redhat.com> - 1.68.2-1
+- Update to 1.68.2.
 
 * Thu Mar 23 2023 Josh Stone <jistone@redhat.com> - 1.68.1-1
 - Update to 1.68.1.

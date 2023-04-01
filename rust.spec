@@ -54,7 +54,7 @@
 %global min_libgit2_version 1.5.0
 %global next_libgit2_version 1.6.0~
 %global bundled_libgit2_version 1.5.0
-%if 0%{?fedora} >= 99
+%if 0%{?fedora} >= 38
 %bcond_with bundled_libgit2
 %else
 %bcond_without bundled_libgit2
@@ -83,7 +83,7 @@
 %endif
 
 Name:           rust
-Version:        1.67.0
+Version:        1.67.1
 Release:        1.rv64%{?dist}
 Summary:        The Rust Programming Language
 License:        (ASL 2.0 or MIT) and (BSD and MIT)
@@ -105,6 +105,10 @@ Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
 
 # Set a substitute-path in rust-gdb for standard library sources.
 Patch2:         rustc-1.61.0-rust-gdb-substitute-path.patch
+
+# Fix Async Generator ABI (rhbz2168622)
+# https://github.com/rust-lang/rust/pull/105082
+Patch3:         0001-Fix-Async-Generator-ABI.patch
 
 ### RHEL-specific patches below ###
 
@@ -580,6 +584,7 @@ test -f '%{local_rust_root}/bin/rustc'
 
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
 
 %if %with disabled_libssh2
 %patch100 -p1
@@ -1040,8 +1045,19 @@ end}
 
 
 %changelog
-* Fri Mar 24 2023 Liu Yang <Yang.Liu.sn@gmail.com> - 1.67.0-1.rv64
+* Fri Mar 24 2023 Liu Yang <Yang.Liu.sn@gmail.com> - 1.67.1-1.rv64
 - Fix building on riscv64.
+
+* Thu Feb 09 2023 Josh Stone <jistone@redhat.com> - 1.67.1-1
+- Update to 1.67.1.
+
+* Fri Feb 03 2023 Josh Stone <jistone@redhat.com> - 1.67.0-3
+- Unbundle libgit2 on Fedora 38.
+
+* Fri Jan 27 2023 Adam Williamson <awilliam@redhat.com> - 1.67.0-2
+- Backport PR #107360 to fix build of mesa
+- Backport 675fa0b3 to fix bootstrapping failure
+>>>>>>> f50b7f0c263de110a03416a5bdcc4454cdd112bd
 
 * Thu Jan 26 2023 Josh Stone <jistone@redhat.com> - 1.67.0-1
 - Update to 1.67.0.

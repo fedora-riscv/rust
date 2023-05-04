@@ -1,0 +1,8 @@
+---
+debuginfo:
+    ignore:
+        # i686 has limited debuginfo. From rust.spec
+        # full debuginfo is exhausting memory; just do libstd for now
+        # https://github.com/rust-lang/rust/issues/45854
+        - /usr/lib/debug/usr/bin/rustc-*.i386.debug
+

@@ -787,6 +787,9 @@ for triple in %{?mingw_targets} %{?wasm_targets}; do
 done
 
 %install
+%if 0%{?rhel} && 0%{?rhel} <= 9
+%{?set_build_flags}
+%endif
 %{export_rust_env}
 
 DESTDIR=%{buildroot} %{__python3} ./x.py install
@@ -874,6 +877,9 @@ rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 
 
 %check
+%if 0%{?rhel} && 0%{?rhel} <= 9
+%{?set_build_flags}
+%endif
 %{export_rust_env}
 
 # Sanity-check the installed binaries, debuginfo-stripped and all.

@@ -1,6 +1,6 @@
---- rustc-beta-src/Cargo.lock.orig	2023-03-23 17:10:30.810989345 -0700
-+++ rustc-beta-src/Cargo.lock	2023-03-23 17:10:30.812989303 -0700
-@@ -1142,7 +1142,6 @@
+--- rustc-beta-src/Cargo.lock.orig	2023-05-24 16:49:05.242510531 -0700
++++ rustc-beta-src/Cargo.lock	2023-05-24 16:51:11.741865603 -0700
+@@ -1197,7 +1197,6 @@ checksum = "14d05c10f541ae6f3bc5b3d923c2
  dependencies = [
   "cc",
   "libc",
@@ -8,7 +8,7 @@
   "libz-sys",
   "openssl-sys",
   "pkg-config",
-@@ -2375,16 +2374,6 @@
+@@ -2989,16 +2988,6 @@ source = "registry+https://github.com/ru
  checksum = "7fc7aa29613bd6a620df431842069224d8bc9011086b1db4c0e0cd47fa03ec9a"
  
  [[package]]
@@ -25,20 +25,20 @@
  name = "libz-sys"
  version = "1.1.3"
  source = "registry+https://github.com/rust-lang/crates.io-index"
---- rustc-beta-src/src/tools/cargo/Cargo.toml.orig	2023-03-23 17:10:30.812989303 -0700
-+++ rustc-beta-src/src/tools/cargo/Cargo.toml	2023-03-23 17:11:26.242836664 -0700
-@@ -23,7 +23,7 @@
- cargo-util = { path = "crates/cargo-util", version = "0.2.3" }
- clap = "4.1.3"
+--- rustc-beta-src/src/tools/cargo/Cargo.toml.orig	2023-05-24 16:49:05.244510489 -0700
++++ rustc-beta-src/src/tools/cargo/Cargo.toml	2023-05-24 16:51:04.683013189 -0700
+@@ -23,7 +23,7 @@ cargo-platform = { path = "crates/cargo-
+ cargo-util = { path = "crates/cargo-util", version = "0.2.4" }
+ clap = "4.2.0"
  crates-io = { path = "crates/crates-io", version = "0.36.0" }
 -curl = { version = "0.4.44", features = ["http2"] }
 +curl = { version = "0.4.44", features = [] }
- curl-sys = "0.4.59"
+ curl-sys = "0.4.61"
  env_logger = "0.10.0"
  filetime = "0.2.9"
---- rustc-beta-src/src/tools/cargo/src/cargo/core/package.rs.orig	2023-03-19 00:20:55.000000000 -0700
-+++ rustc-beta-src/src/tools/cargo/src/cargo/core/package.rs	2023-03-23 17:10:30.812989303 -0700
-@@ -401,16 +401,9 @@
+--- rustc-beta-src/src/tools/cargo/src/cargo/core/package.rs.orig	2023-05-19 19:05:42.000000000 -0700
++++ rustc-beta-src/src/tools/cargo/src/cargo/core/package.rs	2023-05-24 16:49:05.244510489 -0700
+@@ -407,16 +407,9 @@ impl<'cfg> PackageSet<'cfg> {
          sources: SourceMap<'cfg>,
          config: &'cfg Config,
      ) -> CargoResult<PackageSet<'cfg>> {
@@ -58,9 +58,9 @@
  
          Ok(PackageSet {
              packages: package_ids
---- rustc-beta-src/src/tools/cargo/src/cargo/sources/registry/http_remote.rs.orig	2023-03-19 00:20:55.000000000 -0700
-+++ rustc-beta-src/src/tools/cargo/src/cargo/sources/registry/http_remote.rs	2023-03-23 17:10:30.813989282 -0700
-@@ -220,16 +220,8 @@
+--- rustc-beta-src/src/tools/cargo/src/cargo/sources/registry/http_remote.rs.orig	2023-05-24 16:49:05.245510468 -0700
++++ rustc-beta-src/src/tools/cargo/src/cargo/sources/registry/http_remote.rs	2023-05-24 16:51:57.916900146 -0700
+@@ -229,16 +229,8 @@ impl<'cfg> HttpRegistry<'cfg> {
          }
          self.fetch_started = true;
  
@@ -77,11 +77,11 @@
 +        // Multiplexing is disabled because the system libcurl doesn't support it.
 +        self.multiplexing = false;
  
-         self.config
-             .shell()
---- rustc-beta-src/src/tools/cargo/src/cargo/util/network.rs.orig	2023-03-19 00:20:55.000000000 -0700
-+++ rustc-beta-src/src/tools/cargo/src/cargo/util/network.rs	2023-03-23 17:10:30.813989282 -0700
-@@ -116,7 +116,7 @@
+         if !self.quiet {
+             self.config
+--- rustc-beta-src/src/tools/cargo/src/cargo/util/network/mod.rs.orig	2023-05-19 19:05:42.000000000 -0700
++++ rustc-beta-src/src/tools/cargo/src/cargo/util/network/mod.rs	2023-05-24 16:49:05.245510468 -0700
+@@ -25,7 +25,7 @@ impl<T> PollExt<T> for Poll<T> {
  macro_rules! try_old_curl {
      ($e:expr, $msg:expr) => {
          let result = $e;

@@ -1,0 +1,98 @@
+From 23b3553ca0332dee4bdd79251b881d552e6bbafa Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Fri, 5 May 2023 17:27:59 -0700
+Subject: [PATCH] Expand the LLVM coverage of `--print target-cpus`
+
+We've been relying on a custom patch to add `MCSubtargetInfo::getCPUTable`
+for `rustc --print target-cpus`, and just printing that it's not supported
+on external LLVM builds. LLVM `main` now has `getAllProcessorDescriptions`
+that can replace ours, so now we try to use that. In addition, the fallback
+path can at least print the native and default cpu options.
+
+There were also some mismatches in the function signatures here between
+`LLVM_RUSTLLVM` and otherwise; this is now mitigated by sharing these
+functions and only using cpp to adjust the function bodies.
+
+(cherry picked from commit 67ae38a336599a7e0d2898a5ea3416b947458f5d)
+---
+ .../rustc_llvm/llvm-wrapper/PassWrapper.cpp   | 30 ++++++++++---------
+ 1 file changed, 16 insertions(+), 14 deletions(-)
+
+diff --git a/compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp b/compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp
+index b1503e6e4b87..a4827a57f5cf 100644
+--- a/compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp
++++ b/compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp
+@@ -297,7 +297,6 @@ static Reloc::Model fromRust(LLVMRustRelocModel RustReloc) {
+   report_fatal_error("Bad RelocModel.");
+ }
+ 
+-#ifdef LLVM_RUSTLLVM
+ /// getLongestEntryLength - Return the length of the longest entry in the table.
+ template<typename KV>
+ static size_t getLongestEntryLength(ArrayRef<KV> Table) {
+@@ -312,11 +311,21 @@ extern "C" void LLVMRustPrintTargetCPUs(LLVMTargetMachineRef TM, const char* Tar
+   const MCSubtargetInfo *MCInfo = Target->getMCSubtargetInfo();
+   const Triple::ArchType HostArch = Triple(sys::getProcessTriple()).getArch();
+   const Triple::ArchType TargetArch = Target->getTargetTriple().getArch();
++
++#if LLVM_VERSION_GE(17, 0)
++  const ArrayRef<SubtargetSubTypeKV> CPUTable = MCInfo->getAllProcessorDescriptions();
++#elif defined(LLVM_RUSTLLVM)
+   const ArrayRef<SubtargetSubTypeKV> CPUTable = MCInfo->getCPUTable();
++#else
++  printf("Full target CPU help is not supported by this LLVM version.\n\n");
++  SubtargetSubTypeKV TargetCPUKV = { TargetCPU, {{}}, {{}} };
++  const ArrayRef<SubtargetSubTypeKV> CPUTable = TargetCPUKV;
++#endif
+   unsigned MaxCPULen = getLongestEntryLength(CPUTable);
+ 
+   printf("Available CPUs for this target:\n");
+   if (HostArch == TargetArch) {
++    MaxCPULen = std::max(MaxCPULen, (unsigned) std::strlen("native"));
+     const StringRef HostCPU = sys::getHostCPUName();
+     printf("    %-*s - Select the CPU of the current host (currently %.*s).\n",
+       MaxCPULen, "native", (int)HostCPU.size(), HostCPU.data());
+@@ -336,34 +345,27 @@ extern "C" void LLVMRustPrintTargetCPUs(LLVMTargetMachineRef TM, const char* Tar
+ }
+ 
+ extern "C" size_t LLVMRustGetTargetFeaturesCount(LLVMTargetMachineRef TM) {
++#ifdef LLVM_RUSTLLVM
+   const TargetMachine *Target = unwrap(TM);
+   const MCSubtargetInfo *MCInfo = Target->getMCSubtargetInfo();
+   const ArrayRef<SubtargetFeatureKV> FeatTable = MCInfo->getFeatureTable();
+   return FeatTable.size();
++#else
++  return 0;
++#endif
+ }
+ 
+ extern "C" void LLVMRustGetTargetFeature(LLVMTargetMachineRef TM, size_t Index,
+                                          const char** Feature, const char** Desc) {
++#ifdef LLVM_RUSTLLVM
+   const TargetMachine *Target = unwrap(TM);
+   const MCSubtargetInfo *MCInfo = Target->getMCSubtargetInfo();
+   const ArrayRef<SubtargetFeatureKV> FeatTable = MCInfo->getFeatureTable();
+   const SubtargetFeatureKV Feat = FeatTable[Index];
+   *Feature = Feat.Key;
+   *Desc = Feat.Desc;
+-}
+-
+-#else
+-
+-extern "C" void LLVMRustPrintTargetCPUs(LLVMTargetMachineRef) {
+-  printf("Target CPU help is not supported by this LLVM version.\n\n");
+-}
+-
+-extern "C" size_t LLVMRustGetTargetFeaturesCount(LLVMTargetMachineRef) {
+-  return 0;
+-}
+-
+-extern "C" void LLVMRustGetTargetFeature(LLVMTargetMachineRef, const char**, const char**) {}
+ #endif
++}
+ 
+ extern "C" const char* LLVMRustGetHostCPUName(size_t *len) {
+   StringRef Name = sys::getHostCPUName();
+-- 
+2.40.1
+

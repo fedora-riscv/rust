@@ -1,0 +1,102 @@
+From 6edbc665ea37ba3bf852b4eb42898b7d6e7b919c Mon Sep 17 00:00:00 2001
+From: Dylan DPC <99973273+Dylan-DPC@users.noreply.github.com>
+Date: Fri, 5 May 2023 18:40:35 +0530
+Subject: [PATCH] Rollup merge of #110876 - mj10021:issue-110647-fix, r=b-naber
+
+Added default target cpu to `--print target-cpus` output and updated docs
+
+Added default target cpu info as requested in issue #110647 and noted the new output in the documentation
+
+(cherry picked from commit 65702bfd6bfb8616e182ddd19d0520ce7e35314a)
+---
+ compiler/rustc_codegen_llvm/src/llvm/ffi.rs     |  2 +-
+ compiler/rustc_codegen_llvm/src/llvm_util.rs    |  9 ++++++++-
+ .../rustc_llvm/llvm-wrapper/PassWrapper.cpp     | 17 +++++++++++++----
+ src/doc/rustc/src/codegen-options/index.md      |  3 ++-
+ 4 files changed, 24 insertions(+), 7 deletions(-)
+
+diff --git a/compiler/rustc_codegen_llvm/src/llvm/ffi.rs b/compiler/rustc_codegen_llvm/src/llvm/ffi.rs
+index 05bbdbb7415c..383a9d2e5ddb 100644
+--- a/compiler/rustc_codegen_llvm/src/llvm/ffi.rs
++++ b/compiler/rustc_codegen_llvm/src/llvm/ffi.rs
+@@ -2263,7 +2263,7 @@ pub fn LLVMRustDIBuilderCreateDebugLocation<'a>(
+ 
+     pub fn LLVMRustHasFeature(T: &TargetMachine, s: *const c_char) -> bool;
+ 
+-    pub fn LLVMRustPrintTargetCPUs(T: &TargetMachine);
++    pub fn LLVMRustPrintTargetCPUs(T: &TargetMachine, cpu: *const c_char);
+     pub fn LLVMRustGetTargetFeaturesCount(T: &TargetMachine) -> size_t;
+     pub fn LLVMRustGetTargetFeature(
+         T: &TargetMachine,
+diff --git a/compiler/rustc_codegen_llvm/src/llvm_util.rs b/compiler/rustc_codegen_llvm/src/llvm_util.rs
+index 46692fd5e8bc..2fbdab9f8ce0 100644
+--- a/compiler/rustc_codegen_llvm/src/llvm_util.rs
++++ b/compiler/rustc_codegen_llvm/src/llvm_util.rs
+@@ -329,7 +329,14 @@ pub(crate) fn print(req: PrintRequest, sess: &Session) {
+     require_inited();
+     let tm = create_informational_target_machine(sess);
+     match req {
+-        PrintRequest::TargetCPUs => unsafe { llvm::LLVMRustPrintTargetCPUs(tm) },
++        PrintRequest::TargetCPUs => {
++            // SAFETY generate a C compatible string from a byte slice to pass
++            // the target CPU name into LLVM, the lifetime of the reference is
++            // at least as long as the C function
++            let cpu_cstring = CString::new(handle_native(sess.target.cpu.as_ref()))
++                .unwrap_or_else(|e| bug!("failed to convert to cstring: {}", e));
++            unsafe { llvm::LLVMRustPrintTargetCPUs(tm, cpu_cstring.as_ptr()) };
++        }
+         PrintRequest::TargetFeatures => print_target_features(sess, tm),
+         _ => bug!("rustc_codegen_llvm can't handle print request: {:?}", req),
+     }
+diff --git a/compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp b/compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp
+index 08e38b0c9d59..b1503e6e4b87 100644
+--- a/compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp
++++ b/compiler/rustc_llvm/llvm-wrapper/PassWrapper.cpp
+@@ -307,7 +307,7 @@ static size_t getLongestEntryLength(ArrayRef<KV> Table) {
+   return MaxLen;
+ }
+ 
+-extern "C" void LLVMRustPrintTargetCPUs(LLVMTargetMachineRef TM) {
++extern "C" void LLVMRustPrintTargetCPUs(LLVMTargetMachineRef TM, const char* TargetCPU) {
+   const TargetMachine *Target = unwrap(TM);
+   const MCSubtargetInfo *MCInfo = Target->getMCSubtargetInfo();
+   const Triple::ArchType HostArch = Triple(sys::getProcessTriple()).getArch();
+@@ -321,9 +321,18 @@ extern "C" void LLVMRustPrintTargetCPUs(LLVMTargetMachineRef TM) {
+     printf("    %-*s - Select the CPU of the current host (currently %.*s).\n",
+       MaxCPULen, "native", (int)HostCPU.size(), HostCPU.data());
+   }
+-  for (auto &CPU : CPUTable)
+-    printf("    %-*s\n", MaxCPULen, CPU.Key);
+-  printf("\n");
++  for (auto &CPU : CPUTable) {
++    // Compare cpu against current target to label the default
++    if (strcmp(CPU.Key, TargetCPU) == 0) {
++      printf("    %-*s - This is the default target CPU"
++      " for the current build target (currently %s).",
++        MaxCPULen, CPU.Key, Target->getTargetTriple().str().c_str());
++    }
++    else {
++      printf("    %-*s", MaxCPULen, CPU.Key);
++    }
++    printf("\n");
++  }
+ }
+ 
+ extern "C" size_t LLVMRustGetTargetFeaturesCount(LLVMTargetMachineRef TM) {
+diff --git a/src/doc/rustc/src/codegen-options/index.md b/src/doc/rustc/src/codegen-options/index.md
+index 62347f169a5e..3a14f582d600 100644
+--- a/src/doc/rustc/src/codegen-options/index.md
++++ b/src/doc/rustc/src/codegen-options/index.md
+@@ -574,7 +574,8 @@ change in the future.
+ This instructs `rustc` to generate code specifically for a particular processor.
+ 
+ You can run `rustc --print target-cpus` to see the valid options to pass
+-here. Each target has a default base CPU. Special values include:
++and the default target CPU for the current buid target.
++Each target has a default base CPU. Special values include:
+ 
+ * `native` can be passed to use the processor of the host machine.
+ * `generic` refers to an LLVM target with minimal features but modern tuning.
+-- 
+2.40.1
+

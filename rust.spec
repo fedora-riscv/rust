@@ -330,8 +330,10 @@ find '%{buildroot}%{rustlibdir}'/wasm*/lib -type f -regex '.*\\.\\(a\\|rlib\\)' 
 %{nil}
 %endif
 
+%if 0%{?fedora} || 0%{?rhel} >= 8
 # For profiler_builtins
 BuildRequires:  compiler-rt
+%endif
 
 # This component was removed as of Rust 1.69.0.
 # https://github.com/rust-lang/rust/pull/101841
@@ -746,9 +748,11 @@ end}
 end}
 %endif
 
+%if 0%{?fedora} || 0%{?rhel} >= 8
 # The exact profiler path is version dependent, and uses LLVM-specific
 # arch names in the filename, but this find is good enough for now...
 PROFILER=$(find %{_libdir}/clang -type f -name 'libclang_rt.profile-*.a')
+%endif
 
 %configure --disable-option-checking \
   --libdir=%{common_libdir} \

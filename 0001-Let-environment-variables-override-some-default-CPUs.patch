@@ -1,4 +1,4 @@
-From 6e2adb05860b72610291d3b0e8bd525c44cb0cc9 Mon Sep 17 00:00:00 2001
+From 87caaab3681b95fa633aac48b9794364e18c467d Mon Sep 17 00:00:00 2001
 From: Josh Stone <jistone@redhat.com>
 Date: Fri, 9 Jun 2023 15:23:08 -0700
 Subject: [PATCH] Let environment variables override some default CPUs
@@ -36,7 +36,7 @@ index f2c722b9a89d..17a14d10b27e 100644
      // ABI. Pass the -vector feature string to LLVM to respect this assumption. On LLVM < 16, we
      // also strip v128 from the data_layout below to match the older LLVM's expectation.
 diff --git a/compiler/rustc_target/src/spec/x86_64_unknown_linux_gnu.rs b/compiler/rustc_target/src/spec/x86_64_unknown_linux_gnu.rs
-index 9af1049b8702..68f876dd18c3 100644
+index 2f970f87cc64..7ee62cd62a5c 100644
 --- a/compiler/rustc_target/src/spec/x86_64_unknown_linux_gnu.rs
 +++ b/compiler/rustc_target/src/spec/x86_64_unknown_linux_gnu.rs
 @@ -2,7 +2,7 @@
@@ -45,9 +45,9 @@ index 9af1049b8702..68f876dd18c3 100644
      let mut base = super::linux_gnu_base::opts();
 -    base.cpu = "x86-64".into();
 +    base.cpu = option_env!("RUSTC_TARGET_CPU_X86_64").unwrap_or("x86-64").into();
+     base.plt_by_default = false;
      base.max_atomic_width = Some(64);
      base.add_pre_link_args(LinkerFlavor::Gnu(Cc::Yes, Lld::No), &["-m64"]);
-     base.stack_probes = StackProbeType::X86;
 -- 
-2.40.1
+2.41.0
 

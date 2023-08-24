@@ -1,6 +1,6 @@
---- rustc-beta-src/src/tools/cargo/Cargo.lock.orig	2023-07-07 17:30:04.817452621 -0700
-+++ rustc-beta-src/src/tools/cargo/Cargo.lock	2023-07-07 17:30:27.777988139 -0700
-@@ -734,7 +734,6 @@
+--- rustc-beta-src/src/tools/cargo/Cargo.lock.orig	2023-08-21 11:00:15.341608892 -0700
++++ rustc-beta-src/src/tools/cargo/Cargo.lock	2023-08-21 11:00:46.074984901 -0700
+@@ -743,7 +743,6 @@
  dependencies = [
   "cc",
   "libc",
@@ -8,8 +8,8 @@
   "libz-sys",
   "openssl-sys",
   "pkg-config",
-@@ -1954,16 +1953,6 @@
- checksum = "348108ab3fba42ec82ff6e9564fc4ca0247bdccdc68dd8af9764bbc79c3c8ffb"
+@@ -2011,16 +2010,6 @@
+ checksum = "f7012b1bbb0719e1097c47611d3898568c546d597c2e74d66f6087edd5233ff4"
  
  [[package]]
 -name = "libnghttp2-sys"
@@ -23,10 +23,10 @@
 -
 -[[package]]
  name = "libz-sys"
- version = "1.1.8"
+ version = "1.1.9"
  source = "registry+https://github.com/rust-lang/crates.io-index"
---- rustc-beta-src/src/tools/cargo/Cargo.toml.orig	2023-07-07 17:30:04.819452581 -0700
-+++ rustc-beta-src/src/tools/cargo/Cargo.toml	2023-07-07 17:30:24.133061874 -0700
+--- rustc-beta-src/src/tools/cargo/Cargo.toml.orig	2023-08-21 11:00:15.341608892 -0700
++++ rustc-beta-src/src/tools/cargo/Cargo.toml	2023-08-21 11:00:15.342608871 -0700
 @@ -118,7 +118,7 @@
  cargo-util.workspace = true
  clap = { workspace = true, features = ["wrap_help"] }
@@ -36,9 +36,9 @@
  curl-sys.workspace = true
  env_logger.workspace = true
  filetime.workspace = true
---- rustc-beta-src/src/tools/cargo/src/cargo/core/package.rs.orig	2023-06-24 10:27:37.000000000 -0700
-+++ rustc-beta-src/src/tools/cargo/src/cargo/core/package.rs	2023-07-07 17:30:04.819452581 -0700
-@@ -407,16 +407,9 @@
+--- rustc-beta-src/src/tools/cargo/src/cargo/core/package.rs.orig	2023-08-17 20:58:39.000000000 -0700
++++ rustc-beta-src/src/tools/cargo/src/cargo/core/package.rs	2023-08-21 11:00:15.343608851 -0700
+@@ -408,16 +408,9 @@
          sources: SourceMap<'cfg>,
          config: &'cfg Config,
      ) -> CargoResult<PackageSet<'cfg>> {
@@ -58,9 +58,9 @@
  
          Ok(PackageSet {
              packages: package_ids
---- rustc-beta-src/src/tools/cargo/src/cargo/sources/registry/http_remote.rs.orig	2023-06-24 10:27:37.000000000 -0700
-+++ rustc-beta-src/src/tools/cargo/src/cargo/sources/registry/http_remote.rs	2023-07-07 17:30:04.819452581 -0700
-@@ -229,16 +229,8 @@
+--- rustc-beta-src/src/tools/cargo/src/cargo/sources/registry/http_remote.rs.orig	2023-08-17 20:58:39.000000000 -0700
++++ rustc-beta-src/src/tools/cargo/src/cargo/sources/registry/http_remote.rs	2023-08-21 11:00:15.343608851 -0700
+@@ -250,16 +250,8 @@
          }
          self.fetch_started = true;
  
@@ -79,14 +79,14 @@
  
          if !self.quiet {
              self.config
---- rustc-beta-src/src/tools/cargo/src/cargo/util/network/mod.rs.orig	2023-06-24 10:27:37.000000000 -0700
-+++ rustc-beta-src/src/tools/cargo/src/cargo/util/network/mod.rs	2023-07-07 17:30:04.819452581 -0700
-@@ -26,7 +26,7 @@
+--- rustc-beta-src/src/tools/cargo/src/cargo/util/network/mod.rs.orig	2023-08-21 11:00:15.343608851 -0700
++++ rustc-beta-src/src/tools/cargo/src/cargo/util/network/mod.rs	2023-08-21 11:02:01.969443986 -0700
+@@ -27,7 +27,7 @@
  macro_rules! try_old_curl {
      ($e:expr, $msg:expr) => {
          let result = $e;
 -        if cfg!(target_os = "macos") {
 +        if cfg!(any(target_os = "linux", target_os = "macos")) {
              if let Err(e) = result {
-                 warn!("ignoring libcurl {} error: {}", $msg, e);
+                 ::log::warn!("ignoring libcurl {} error: {}", $msg, e);
              }

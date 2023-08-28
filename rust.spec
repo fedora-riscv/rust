@@ -82,7 +82,7 @@
 
 Name:           rust
 Version:        1.73.0
-Release:        1%{?dist}
+Release:        1.rv64%{?dist}
 Summary:        The Rust Programming Language
 License:        (Apache-2.0 OR MIT) AND (Artistic-2.0 AND BSD-3-Clause AND ISC AND MIT AND MPL-2.0 AND Unicode-DFS-2016)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -780,6 +780,11 @@ done
 # The rls stub doesn't have an install target, but we can just copy it.
 %{__install} -t %{buildroot}%{_bindir} build/%{rust_triple}/stage2-tools-bin/rls
 
+# rust-analyzer installing missing on riscv64
+%ifarch riscv64
+%{__install} -t %{buildroot}%{_bindir} build/%{rust_triple}/stage2-tools-bin/rust-analyzer
+%endif
+
 # These are transient files used by x.py dist and install
 rm -rf ./build/dist/ ./build/tmp/
 
@@ -1033,6 +1038,9 @@ rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
 
 
 %changelog
+* Tue Nov 15 2023 Liu Yang <Yang.Liu.sn@gmail.com> - 1.73.0-1.rv64
+- Fix building on riscv64.
+
 * Thu Oct 05 2023 Josh Stone <jistone@redhat.com> - 1.73.0-1
 - Update to 1.73.0.
 - Drop el7 conditionals from the spec.

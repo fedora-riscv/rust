@@ -29,6 +29,9 @@
 %if 0%{?fedora} || 0%{?rhel} >= 8
 %global wasm_targets wasm32-unknown-unknown wasm32-wasi
 %endif
+%if 0%{?fedora} || 0%{?rhel} >= 10
+%global extra_targets x86_64-unknown-none
+%endif
 %endif
 
 # We need CRT files for *-wasi targets, at least as new as the commit in
@@ -428,6 +431,33 @@ end}
 %endif
 
 
+%if %defined extra_targets
+%{lua: do
+  for triple in string.gmatch(rpm.expand("%{extra_targets}"), "%S+") do
+    local subs = {
+      triple = triple,
+      name = rpm.expand("%{name}"),
+      verrel = rpm.expand("%{version}-%{release}"),
+    }
+    local s = string.gsub([[
+
+%package std-static-{{triple}}
+Summary:        Standard library for Rust {{triple}}
+BuildArch:      noarch
+Requires:       {{name}} = {{verrel}}
+Requires:       lld >= 8.0
+
+%description std-static-{{triple}}
+This package includes the standard libraries for building applications
+written in Rust for the embedded target {{triple}}.
+
+]], "{{(%w+)}}", subs)
+    print(s)
+  end
+end}
+%endif
+
+
 %package debugger-common
 Summary:        Common debugger pretty printers for Rust
 BuildArch:      noarch
@@ -801,7 +831,7 @@ PROFILER=$(find %{_libdir}/clang -type f -name 'libclang_rt.profile-*.a')
 %{__python3} ./x.py build -j "$ncpus"
 %{__python3} ./x.py doc
 
-for triple in %{?mingw_targets} %{?wasm_targets}; do
+for triple in %{?mingw_targets} %{?wasm_targets} %{?extra_targets}; do
   %{__python3} ./x.py build --target=$triple std
 done
 
@@ -813,7 +843,7 @@ done
 
 DESTDIR=%{buildroot} %{__python3} ./x.py install
 
-for triple in %{?mingw_targets} %{?wasm_targets}; do
+for triple in %{?mingw_targets} %{?wasm_targets} %{?extra_targets}; do
   DESTDIR=%{buildroot} %{__python3} ./x.py install --target=$triple std
 done
 
@@ -1013,6 +1043,27 @@ end}
 end}
 %endif
 
+%if %defined extra_targets
+%{lua: do
+  for triple in string.gmatch(rpm.expand("%{extra_targets}"), "%S+") do
+    local subs = {
+      triple = triple,
+      rustlibdir = rpm.expand("%{rustlibdir}"),
+    }
+    local s = string.gsub([[
+
+%files std-static-{{triple}}
+%dir {{rustlibdir}}
+%dir {{rustlibdir}}/{{triple}}
+%dir {{rustlibdir}}/{{triple}}/lib
+{{rustlibdir}}/{{triple}}/lib/*.rlib
+
+]], "{{(%w+)}}", subs)
+    print(s)
+  end
+end}
+%endif
+
 
 %files debugger-common
 %dir %{rustlibdir}
@@ -1090,6 +1141,7 @@ end}
 %changelog
 * Mon Sep 25 2023 Josh Stone <jistone@redhat.com> - 1.72.1-2
 - Fix LLVM dependency for ELN
+- Add build target for x86_64-unknown-none
 
 * Tue Sep 19 2023 Josh Stone <jistone@redhat.com> - 1.72.1-1
 - Update to 1.72.1.

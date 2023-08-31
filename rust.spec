@@ -30,7 +30,7 @@
 %global wasm_targets wasm32-unknown-unknown wasm32-wasi
 %endif
 %if 0%{?fedora} || 0%{?rhel} >= 10
-%global extra_targets x86_64-unknown-none
+%global extra_targets x86_64-unknown-none x86_64-unknown-uefi
 %endif
 %endif
 
@@ -1142,6 +1142,7 @@ end}
 * Mon Sep 25 2023 Josh Stone <jistone@redhat.com> - 1.72.1-2
 - Fix LLVM dependency for ELN
 - Add build target for x86_64-unknown-none
+- Add build target for x86_64-unknown-uefi
 
 * Tue Sep 19 2023 Josh Stone <jistone@redhat.com> - 1.72.1-1
 - Update to 1.72.1.

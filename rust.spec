@@ -85,7 +85,7 @@
 
 Name:           rust
 Version:        1.72.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        The Rust Programming Language
 License:        (Apache-2.0 OR MIT) AND (Artistic-2.0 AND BSD-3-Clause AND ISC AND MIT AND MPL-2.0 AND Unicode-DFS-2016)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -237,7 +237,7 @@ BuildRequires:  cmake >= 2.8.11
 %global llvm llvm14
 %endif
 # not ready for llvm-17 yet...
-%if 0%{?fedora} >= 39
+%if 0%{?fedora} >= 39 || 0%{?rhel} >= 10
 %global llvm llvm16
 %endif
 %if %defined llvm
@@ -1088,6 +1088,9 @@ end}
 
 
 %changelog
+* Mon Sep 25 2023 Josh Stone <jistone@redhat.com> - 1.72.1-2
+- Fix LLVM dependency for ELN
+
 * Tue Sep 19 2023 Josh Stone <jistone@redhat.com> - 1.72.1-1
 - Update to 1.72.1.
 - Migrated to SPDX license

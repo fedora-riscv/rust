@@ -1,0 +1,39 @@
+diff --git a/compiler/rustc_target/src/spec/wasm_base.rs b/compiler/rustc_target/src/spec/wasm_base.rs
+index 341763aadbaf..ee6358e72955 100644
+--- a/compiler/rustc_target/src/spec/wasm_base.rs
++++ b/compiler/rustc_target/src/spec/wasm_base.rs
+@@ -89,8 +89,7 @@ macro_rules! args {
+         // arguments just yet
+         limit_rdylib_exports: false,
+ 
+-        // we use the LLD shipped with the Rust toolchain by default
+-        linker: Some("rust-lld".into()),
++        linker: Some("lld".into()),
+         linker_flavor: LinkerFlavor::WasmLld(Cc::No),
+ 
+         pre_link_args,
+diff --git a/compiler/rustc_target/src/spec/x86_64_unknown_none.rs b/compiler/rustc_target/src/spec/x86_64_unknown_none.rs
+index fe3b24f2d4af..1f1731d202ca 100644
+--- a/compiler/rustc_target/src/spec/x86_64_unknown_none.rs
++++ b/compiler/rustc_target/src/spec/x86_64_unknown_none.rs
+@@ -17,7 +17,7 @@ pub fn target() -> Target {
+         static_position_independent_executables: true,
+         relro_level: RelroLevel::Full,
+         linker_flavor: LinkerFlavor::Gnu(Cc::No, Lld::Yes),
+-        linker: Some("rust-lld".into()),
++        linker: Some("lld".into()),
+         features:
+             "-mmx,-sse,-sse2,-sse3,-ssse3,-sse4.1,-sse4.2,-3dnow,-3dnowa,-avx,-avx2,+soft-float"
+                 .into(),
+diff --git a/compiler/rustc_target/src/spec/x86_64_unknown_uefi.rs b/compiler/rustc_target/src/spec/x86_64_unknown_uefi.rs
+index 67664a74710a..53153cd120a3 100644
+--- a/compiler/rustc_target/src/spec/x86_64_unknown_uefi.rs
++++ b/compiler/rustc_target/src/spec/x86_64_unknown_uefi.rs
+@@ -12,6 +12,7 @@ pub fn target() -> Target {
+     base.cpu = "x86-64".into();
+     base.plt_by_default = false;
+     base.max_atomic_width = Some(64);
++    base.linker = Some("lld".into());
+ 
+     // We disable MMX and SSE for now, even though UEFI allows using them. Problem is, you have to
+     // enable these CPU features explicitly before their first use, otherwise their instructions

@@ -104,8 +104,8 @@ Source0:        https://static.rust-lang.org/dist/%{rustc_package}.tar.xz
 Source1:        %{wasi_libc_source}
 # Sources for bootstrap_arches are inserted by lua below
 
-# By default, rust tries to use "rust-lld" as a linker for WebAssembly.
-Patch1:         0001-Use-lld-provided-by-system-for-wasm.patch
+# By default, rust tries to use "rust-lld" as a linker for some targets.
+Patch1:         0001-Use-lld-provided-by-system.patch
 
 # Set a substitute-path in rust-gdb for standard library sources.
 Patch2:         rustc-1.70.0-rust-gdb-substitute-path.patch
@@ -443,7 +443,6 @@ end}
 
 %package std-static-{{triple}}
 Summary:        Standard library for Rust {{triple}}
-BuildArch:      noarch
 Requires:       {{name}} = {{verrel}}
 Requires:       lld >= 8.0
 

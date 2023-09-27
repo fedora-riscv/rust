@@ -33,6 +33,10 @@
 %global extra_targets x86_64-unknown-none x86_64-unknown-uefi
 %endif
 %endif
+%global all_targets %{?mingw_targets} %{?wasm_targets} %{?extra_targets}
+%define target_enabled() %{lua:
+  print(string.find(rpm.expand(" %{all_targets} "), rpm.expand(" %1 "), 1, true) or 0)
+}
 
 # We need CRT files for *-wasi targets, at least as new as the commit in
 # src/ci/docker/host-x86_64/dist-various-2/build-wasi-toolchain.sh
@@ -154,14 +158,12 @@ Patch101:       rustc-1.72.0-disable-http2.patch
   return arch.."-unknown-linux-"..abi
 end}
 
-# Get the environment form of a Rust triple
-%{lua: function rust_triple_env(triple)
-  local sub = string.gsub(triple, "-", "_")
-  return string.upper(sub)
-end}
-
 %global rust_triple %{lua: print(rust_triple(rpm.expand("%{_target_cpu}")))}
-%global rust_triple_env %{lua: print(rust_triple_env(rpm.expand("%{rust_triple}")))}
+
+# Get the environment form of the Rust triple
+%global rust_triple_env %{lua:
+  print(string.upper(string.gsub(rpm.expand("%{rust_triple}"), "-", "_")))
+}
 
 %if %defined bootstrap_arches
 # For each bootstrap arch, add an additional binary Source.
@@ -369,91 +371,63 @@ Requires:       glibc-devel%{?_isa} >= 2.17
 This package includes the standard libraries for building applications
 written in Rust.
 
-%if %defined mingw_targets
-%{lua: do
-  for triple in string.gmatch(rpm.expand("%{mingw_targets}"), "%S+") do
-    local subs = {
-      triple = triple,
-      name = rpm.expand("%{name}"),
-      verrel = rpm.expand("%{version}-%{release}"),
-      mingw = string.sub(triple, 1, 4) == "i686" and "mingw32" or "mingw64",
-    }
-    local s = string.gsub([[
+%global target_package()                        \
+%package std-static-%1                          \
+Summary:        Standard library for Rust %1    \
+Requires:       %{name} = %{version}-%{release}
 
-%package std-static-{{triple}}
-Summary:        Standard library for Rust {{triple}}
+%global target_description()                                            \
+%description std-static-%1                                              \
+This package includes the standard libraries for building applications  \
+written in Rust for the %2 target %1.
+
+%if %target_enabled i686-pc-windows-gnu
+%target_package i686-pc-windows-gnu
+Requires:       mingw32-crt
+Requires:       mingw32-gcc
+Requires:       mingw32-winpthreads-static
+Provides:       mingw32-rust = %{version}-%{release}
+Provides:       mingw32-rustc = %{version}-%{release}
 BuildArch:      noarch
-Provides:       {{mingw}}-rust = {{verrel}}
-Provides:       {{mingw}}-rustc = {{verrel}}
-Requires:       {{mingw}}-crt
-Requires:       {{mingw}}-gcc
-Requires:       {{mingw}}-winpthreads-static
-Requires:       {{name}} = {{verrel}}
-
-%description std-static-{{triple}}
-This package includes the standard libraries for building applications
-written in Rust for the MinGW target {{triple}}.
-
-]], "{{(%w+)}}", subs)
-    print(s)
-  end
-end}
+%target_description i686-pc-windows-gnu MinGW
 %endif
 
-%if %defined wasm_targets
-%{lua: do
-  for triple in string.gmatch(rpm.expand("%{wasm_targets}"), "%S+") do
-    local subs = {
-      triple = triple,
-      name = rpm.expand("%{name}"),
-      verrel = rpm.expand("%{version}-%{release}"),
-      wasi = string.find(triple, "-wasi") and 1 or 0,
-    }
-    local s = string.gsub([[
-
-%package std-static-{{triple}}
-Summary:        Standard library for Rust {{triple}}
+%if %target_enabled x86_64-pc-windows-gnu
+%target_package x86_64-pc-windows-gnu
+Requires:       mingw64-crt
+Requires:       mingw64-gcc
+Requires:       mingw64-winpthreads-static
+Provides:       mingw64-rust = %{version}-%{release}
+Provides:       mingw64-rustc = %{version}-%{release}
 BuildArch:      noarch
-Requires:       {{name}} = {{verrel}}
+%target_description x86_64-pc-windows-gnu MinGW
+%endif
+
+%if %target_enabled wasm32-unknown-unknown
+%target_package wasm32-unknown-unknown
 Requires:       lld >= 8.0
-%if {{wasi}}
+BuildArch:      noarch
+%target_description wasm32-unknown-unknown WebAssembly
+%endif
+
+%if %target_enabled wasm32-wasi
+%target_package wasm32-wasi
+Requires:       lld >= 8.0
 Provides:       bundled(wasi-libc)
+BuildArch:      noarch
+%target_description wasm32-wasi WebAssembly
 %endif
 
-%description std-static-{{triple}}
-This package includes the standard libraries for building applications
-written in Rust for the WebAssembly target {{triple}}.
-
-]], "{{(%w+)}}", subs)
-    print(s)
-  end
-end}
+%if %target_enabled x86_64-unknown-none
+%target_package x86_64-unknown-none
+Requires:       lld
+%target_description x86_64-unknown-none embedded
 %endif
 
-
-%if %defined extra_targets
-%{lua: do
-  for triple in string.gmatch(rpm.expand("%{extra_targets}"), "%S+") do
-    local subs = {
-      triple = triple,
-      name = rpm.expand("%{name}"),
-      verrel = rpm.expand("%{version}-%{release}"),
-    }
-    local s = string.gsub([[
-
-%package std-static-{{triple}}
-Summary:        Standard library for Rust {{triple}}
-Requires:       {{name}} = {{verrel}}
-Requires:       lld >= 8.0
-
-%description std-static-{{triple}}
-This package includes the standard libraries for building applications
-written in Rust for the embedded target {{triple}}.
-
-]], "{{(%w+)}}", subs)
-    print(s)
-  end
-end}
+%if %target_enabled x86_64-unknown-uefi
+%target_package x86_64-unknown-uefi
+Requires:       lld
+%target_description x86_64-unknown-uefi embedded
 %endif
 
 
@@ -705,7 +679,7 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
 %endif
 
 # These are similar to __cflags_arch_* in /usr/lib/rpm/redhat/macros
-%{lua: function rustc_target_cpus()
+%global rustc_target_cpus %{lua: do
   local fedora = tonumber(rpm.expand("0%{?fedora}"))
   local rhel = tonumber(rpm.expand("0%{?rhel}"))
   local env =
@@ -714,11 +688,11 @@ find -name '*.rs' -type f -perm /111 -exec chmod -v -x '{}' '+'
     .. " RUSTC_TARGET_CPU_S390X=" ..
         ((rhel >= 9) and "z14" or (rhel == 8 or fedora >= 38) and "z13" or
          (fedora >= 26) and "zEC12" or (rhel == 7) and "z196" or "z10")
-  return env
+  print(env)
 end}
 
 # Set up shared environment variables for build/install/check
-%global rust_env %{?rustflags:RUSTFLAGS="%{rustflags}"} %{lua: print(rustc_target_cpus())}
+%global rust_env %{?rustflags:RUSTFLAGS="%{rustflags}"} %{rustc_target_cpus}
 %if %defined cmake_path
 %global rust_env %{?rust_env} PATH="%{cmake_path}:$PATH"
 %endif
@@ -754,38 +728,21 @@ if [ "$max_cpus" -ge 1 -a "$max_cpus" -lt "$ncpus" ]; then
 fi
 
 %if %defined mingw_targets
-%{lua: do
-  local cfg = ""
-  for triple in string.gmatch(rpm.expand("%{mingw_targets}"), "%S+") do
-    local subs = {
-      triple = triple,
-      mingw = string.sub(triple, 1, 4) == "i686" and "mingw32" or "mingw64",
-    }
-    local s = string.gsub([[
-      --set target.{{triple}}.linker=%{{{mingw}}_cc}
-      --set target.{{triple}}.cc=%{{{mingw}}_cc}
-      --set target.{{triple}}.ar=%{{{mingw}}_ar}
-      --set target.{{triple}}.ranlib=%{{{mingw}}_ranlib}
-    ]], "{{(%w+)}}", subs)
-    cfg = cfg .. " " .. s
-  end
-  cfg = string.gsub(cfg, "%s+", " ")
-  rpm.define("mingw_target_config " .. cfg)
-end}
+%define mingw_target_config %{shrink:
+  --set target.i686-pc-windows-gnu.linker=%{mingw32_cc}
+  --set target.i686-pc-windows-gnu.cc=%{mingw32_cc}
+  --set target.i686-pc-windows-gnu.ar=%{mingw32_ar}
+  --set target.i686-pc-windows-gnu.ranlib=%{mingw32_ranlib}
+  --set target.x86_64-pc-windows-gnu.linker=%{mingw64_cc}
+  --set target.x86_64-pc-windows-gnu.cc=%{mingw64_cc}
+  --set target.x86_64-pc-windows-gnu.ar=%{mingw64_ar}
+  --set target.x86_64-pc-windows-gnu.ranlib=%{mingw64_ranlib}
+}
 %endif
 
 %if %defined wasm_targets
 %make_build --quiet -C %{wasi_libc_dir} CC=clang AR=llvm-ar NM=llvm-nm
-%{lua: do
-  local wasi_root = rpm.expand("%{wasi_libc_dir}") .. "/sysroot"
-  local cfg = ""
-  for triple in string.gmatch(rpm.expand("%{wasm_targets}"), "%S+") do
-    if string.find(triple, "-wasi") then
-      cfg = cfg .. " --set target." .. triple .. ".wasi-root=" .. wasi_root
-    end
-  end
-  rpm.define("wasm_target_config "..cfg)
-end}
+%define wasm_target_config --set target.wasm32-wasi.wasi-root=%{wasi_libc_dir}/sysroot
 %endif
 
 %if 0%{?fedora} || 0%{?rhel} >= 8
@@ -830,7 +787,7 @@ PROFILER=$(find %{_libdir}/clang -type f -name 'libclang_rt.profile-*.a')
 %{__python3} ./x.py build -j "$ncpus"
 %{__python3} ./x.py doc
 
-for triple in %{?mingw_targets} %{?wasm_targets} %{?extra_targets}; do
+for triple in %{?all_targets} ; do
   %{__python3} ./x.py build --target=$triple std
 done
 
@@ -842,7 +799,7 @@ done
 
 DESTDIR=%{buildroot} %{__python3} ./x.py install
 
-for triple in %{?mingw_targets} %{?wasm_targets} %{?extra_targets}; do
+for triple in %{?all_targets} ; do
   DESTDIR=%{buildroot} %{__python3} ./x.py install --target=$triple std
 done
 
@@ -939,7 +896,7 @@ env RUSTC=%{buildroot}%{_bindir}/rustc \
     LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
     %{buildroot}%{_bindir}/cargo run --manifest-path build/hello-world/Cargo.toml
 
-# Try a build sanity-check for other targets
+# Try a build sanity-check for other std-enabled targets
 for triple in %{?mingw_targets} %{?wasm_targets}; do
   env RUSTC=%{buildroot}%{_bindir}/rustc \
       LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
@@ -988,79 +945,46 @@ rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
 %dir %{rustlibdir}/%{rust_triple}/lib
 %{rustlibdir}/%{rust_triple}/lib/*.rlib
 
+%global target_files()      \
+%files std-static-%1        \
+%dir %{rustlibdir}          \
+%dir %{rustlibdir}/%1       \
+%dir %{rustlibdir}/%1/lib   \
+%{rustlibdir}/%1/lib/*.rlib
 
-%if %defined mingw_targets
-%{lua: do
-  for triple in string.gmatch(rpm.expand("%{mingw_targets}"), "%S+") do
-    local subs = {
-      triple = triple,
-      rustlibdir = rpm.expand("%{rustlibdir}"),
-    }
-    local s = string.gsub([[
-
-%files std-static-{{triple}}
-%dir {{rustlibdir}}
-%dir {{rustlibdir}}/{{triple}}
-%dir {{rustlibdir}}/{{triple}}/lib
-{{rustlibdir}}/{{triple}}/lib/*.rlib
-{{rustlibdir}}/{{triple}}/lib/rs*.o
-%exclude {{rustlibdir}}/{{triple}}/lib/*.dll
-%exclude {{rustlibdir}}/{{triple}}/lib/*.dll.a
-%exclude {{rustlibdir}}/{{triple}}/lib/self-contained
-
-]], "{{(%w+)}}", subs)
-    print(s)
-  end
-end}
+%if %target_enabled i686-pc-windows-gnu
+%target_files i686-pc-windows-gnu
+%{rustlibdir}/i686-pc-windows-gnu/lib/rs*.o
+%exclude %{rustlibdir}/i686-pc-windows-gnu/lib/*.dll
+%exclude %{rustlibdir}/i686-pc-windows-gnu/lib/*.dll.a
+%exclude %{rustlibdir}/i686-pc-windows-gnu/lib/self-contained
 %endif
 
-
-%if %defined wasm_targets
-%{lua: do
-  for triple in string.gmatch(rpm.expand("%{wasm_targets}"), "%S+") do
-    local subs = {
-      triple = triple,
-      rustlibdir = rpm.expand("%{rustlibdir}"),
-      wasi = string.find(triple, "-wasi") and 1 or 0,
-    }
-    local s = string.gsub([[
-
-%files std-static-{{triple}}
-%dir {{rustlibdir}}
-%dir {{rustlibdir}}/{{triple}}
-%dir {{rustlibdir}}/{{triple}}/lib
-{{rustlibdir}}/{{triple}}/lib/*.rlib
-%if {{wasi}}
-%dir {{rustlibdir}}/{{triple}}/lib/self-contained
-{{rustlibdir}}/{{triple}}/lib/self-contained/crt*.o
-{{rustlibdir}}/{{triple}}/lib/self-contained/libc.a
+%if %target_enabled x86_64-pc-windows-gnu
+%target_files x86_64-pc-windows-gnu
+%{rustlibdir}/x86_64-pc-windows-gnu/lib/rs*.o
+%exclude %{rustlibdir}/x86_64-pc-windows-gnu/lib/*.dll
+%exclude %{rustlibdir}/x86_64-pc-windows-gnu/lib/*.dll.a
+%exclude %{rustlibdir}/x86_64-pc-windows-gnu/lib/self-contained
 %endif
 
-]], "{{(%w+)}}", subs)
-    print(s)
-  end
-end}
+%if %target_enabled wasm32-unknown-unknown
+%target_files wasm32-unknown-unknown
 %endif
 
-%if %defined extra_targets
-%{lua: do
-  for triple in string.gmatch(rpm.expand("%{extra_targets}"), "%S+") do
-    local subs = {
-      triple = triple,
-      rustlibdir = rpm.expand("%{rustlibdir}"),
-    }
-    local s = string.gsub([[
+%if %target_enabled wasm32-wasi
+%target_files wasm32-wasi
+%dir %{rustlibdir}/wasm32-wasi/lib/self-contained
+%{rustlibdir}/wasm32-wasi/lib/self-contained/crt*.o
+%{rustlibdir}/wasm32-wasi/lib/self-contained/libc.a
+%endif
 
-%files std-static-{{triple}}
-%dir {{rustlibdir}}
-%dir {{rustlibdir}}/{{triple}}
-%dir {{rustlibdir}}/{{triple}}/lib
-{{rustlibdir}}/{{triple}}/lib/*.rlib
+%if %target_enabled x86_64-unknown-none
+%target_files x86_64-unknown-none
+%endif
 
-]], "{{(%w+)}}", subs)
-    print(s)
-  end
-end}
+%if %target_enabled x86_64-unknown-uefi
+%target_files x86_64-unknown-uefi
 %endif
 
 

@@ -92,7 +92,7 @@
 
 Name:           rust
 Version:        1.72.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        The Rust Programming Language
 License:        (Apache-2.0 OR MIT) AND (Artistic-2.0 AND BSD-3-Clause AND ISC AND MIT AND MPL-2.0 AND Unicode-DFS-2016)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -746,9 +746,14 @@ fi
 %endif
 
 %if 0%{?fedora} || 0%{?rhel} >= 8
-# The exact profiler path is version dependent, and uses LLVM-specific
-# arch names in the filename, but this find is good enough for now...
-PROFILER=$(find %{_libdir}/clang -type f -name 'libclang_rt.profile-*.a')
+# Find the compiler-rt library for the Rust profiler_builtins crate.
+%if 0%{?clang_major_version} >= 17
+PROFILER='%{clang_resource_dir}/lib/%{_arch}-redhat-linux-gnu/libclang_rt.profile.a'
+%else
+# The exact profiler path is version dependent..
+PROFILER=$(echo %{_libdir}/clang/*/lib/libclang_rt.profile-%{_arch}.a)
+%endif
+test -r "$PROFILER"
 %endif
 
 %configure --disable-option-checking \
@@ -892,16 +897,23 @@ rm -f %{buildroot}%{rustlibdir}/%{rust_triple}/bin/rust-ll*
 
 # Sanity-check the installed binaries, debuginfo-stripped and all.
 %{buildroot}%{_bindir}/cargo new build/hello-world
-env RUSTC=%{buildroot}%{_bindir}/rustc \
-    LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
-    %{buildroot}%{_bindir}/cargo run --manifest-path build/hello-world/Cargo.toml
+(
+  cd build/hello-world
+  export RUSTC=%{buildroot}%{_bindir}/rustc \
+    LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH"
+  %{buildroot}%{_bindir}/cargo run --verbose
 
-# Try a build sanity-check for other std-enabled targets
-for triple in %{?mingw_targets} %{?wasm_targets}; do
-  env RUSTC=%{buildroot}%{_bindir}/rustc \
-      LD_LIBRARY_PATH="%{buildroot}%{_libdir}:$LD_LIBRARY_PATH" \
-      %{buildroot}%{_bindir}/cargo build --manifest-path build/hello-world/Cargo.toml --target=$triple
-done
+%if 0%{?fedora} || 0%{?rhel} >= 8
+  # Sanity-check that code-coverage builds and runs
+  env RUSTFLAGS="-Cinstrument-coverage" %{buildroot}%{_bindir}/cargo run --verbose
+  test -r default_*.profraw
+%endif
+
+  # Try a build sanity-check for other std-enabled targets
+  for triple in %{?mingw_targets} %{?wasm_targets}; do
+    %{buildroot}%{_bindir}/cargo build --verbose --target=$triple
+  done
+)
 
 # The results are not stable on koji, so mask errors and just log it.
 # Some of the larger test artifacts are manually cleaned to save space.
@@ -1062,6 +1074,9 @@ rm -rf "./build/%{rust_triple}/stage2-tools/%{rust_triple}/cit/"
 
 
 %changelog
+* Wed Sep 27 2023 Josh Stone <jistone@redhat.com> - 1.72.1-3
+- Fix the profiler runtime with compiler-rt-17
+
 * Mon Sep 25 2023 Josh Stone <jistone@redhat.com> - 1.72.1-2
 - Fix LLVM dependency for ELN
 - Add build target for x86_64-unknown-none

@@ -1,0 +1,102 @@
+From 19c37083cdae94105f6429350dd0b6617e3c2d56 Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Thu, 28 Sep 2023 18:14:28 -0700
+Subject: [PATCH 1/2] bootstrap: allow disabling target self-contained
+
+---
+ config.example.toml      | 5 +++++
+ src/bootstrap/compile.rs | 4 ++++
+ src/bootstrap/config.rs  | 8 ++++++++
+ src/bootstrap/lib.rs     | 5 +++++
+ 4 files changed, 22 insertions(+)
+
+diff --git a/config.example.toml b/config.example.toml
+index 0c65b25fe138..6a0f1c01c328 100644
+--- a/config.example.toml
++++ b/config.example.toml
+@@ -789,6 +789,11 @@ changelog-seen = 2
+ # target triples containing `-none`, `nvptx`, `switch`, or `-uefi`.
+ #no-std = <platform-specific> (bool)
+ 
++# Copy libc and CRT objects into the target lib/self-contained/ directory.
++# Enabled by default on `musl`, `wasi`, and `windows-gnu` targets. Other
++# targets may ignore this setting if they have nothing to be contained.
++#self-contained = <platform-specific> (bool)
++
+ # =============================================================================
+ # Distribution options
+ #
+diff --git a/src/bootstrap/compile.rs b/src/bootstrap/compile.rs
+index 14c3ef79a78f..7adbf091acbb 100644
+--- a/src/bootstrap/compile.rs
++++ b/src/bootstrap/compile.rs
+@@ -263,6 +263,10 @@ fn copy_self_contained_objects(
+     compiler: &Compiler,
+     target: TargetSelection,
+ ) -> Vec<(PathBuf, DependencyType)> {
++    if builder.self_contained(target) != Some(true) {
++        return vec![];
++    }
++
+     let libdir_self_contained = builder.sysroot_libdir(*compiler, target).join("self-contained");
+     t!(fs::create_dir_all(&libdir_self_contained));
+     let mut target_deps = vec![];
+diff --git a/src/bootstrap/config.rs b/src/bootstrap/config.rs
+index fe932fd6bd30..a626badc3e8a 100644
+--- a/src/bootstrap/config.rs
++++ b/src/bootstrap/config.rs
+@@ -541,6 +541,7 @@ pub struct Target {
+     pub wasi_root: Option<PathBuf>,
+     pub qemu_rootfs: Option<PathBuf>,
+     pub no_std: bool,
++    pub self_contained: bool,
+ }
+ 
+ impl Target {
+@@ -553,6 +554,9 @@ pub fn from_triple(triple: &str) -> Self {
+         {
+             target.no_std = true;
+         }
++        if triple.contains("-musl") || triple.contains("-wasi") || triple.contains("-windows-gnu") {
++            target.self_contained = true;
++        }
+         target
+     }
+ }
+@@ -999,6 +1003,7 @@ struct TomlTarget {
+         wasi_root: Option<String> = "wasi-root",
+         qemu_rootfs: Option<String> = "qemu-rootfs",
+         no_std: Option<bool> = "no-std",
++        self_contained: Option<bool> = "self-contained",
+     }
+ }
+ 
+@@ -1524,6 +1529,9 @@ fn get_table(option: &str) -> Result<TomlConfig, toml::de::Error> {
+                 if let Some(s) = cfg.no_std {
+                     target.no_std = s;
+                 }
++                if let Some(s) = cfg.self_contained {
++                    target.self_contained = s;
++                }
+                 target.cc = cfg.cc.map(PathBuf::from).or_else(|| {
+                     target.ndk.as_ref().map(|ndk| ndk_compiler(Language::C, &triple, ndk))
+                 });
+diff --git a/src/bootstrap/lib.rs b/src/bootstrap/lib.rs
+index 0a7aff62257a..9b7c18a3353f 100644
+--- a/src/bootstrap/lib.rs
++++ b/src/bootstrap/lib.rs
+@@ -1285,6 +1285,11 @@ fn no_std(&self, target: TargetSelection) -> Option<bool> {
+         self.config.target_config.get(&target).map(|t| t.no_std)
+     }
+ 
++    /// Returns `true` if this is a self-contained `target`, if defined
++    fn self_contained(&self, target: TargetSelection) -> Option<bool> {
++        self.config.target_config.get(&target).map(|t| t.self_contained)
++    }
++
+     /// Returns `true` if the target will be tested using the `remote-test-client`
+     /// and `remote-test-server` binaries.
+     fn remote_tested(&self, target: TargetSelection) -> bool {
+-- 
+2.41.0
+

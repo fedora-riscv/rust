@@ -1,0 +1,33 @@
+From 1c6d867d78475fd8c6274e2b64ebb27735b6cabf Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Sat, 26 Aug 2023 11:50:16 -0700
+Subject: [PATCH] wasi: round up the size for `aligned_alloc`
+
+C11 `aligned_alloc` requires that the size be a multiple of the
+alignment. This is enforced in the wasi-libc emmalloc implementation,
+which always returns NULL if the size is not a multiple.
+(The default `MALLOC_IMPL=dlmalloc` does not currently check this.)
+---
+ library/std/src/sys/unix/alloc.rs | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/library/std/src/sys/unix/alloc.rs b/library/std/src/sys/unix/alloc.rs
+index 8604b53983d6..af0089978ecb 100644
+--- a/library/std/src/sys/unix/alloc.rs
++++ b/library/std/src/sys/unix/alloc.rs
+@@ -86,7 +86,11 @@ unsafe fn aligned_malloc(layout: &Layout) -> *mut u8 {
+     } else if #[cfg(target_os = "wasi")] {
+         #[inline]
+         unsafe fn aligned_malloc(layout: &Layout) -> *mut u8 {
+-            libc::aligned_alloc(layout.align(), layout.size()) as *mut u8
++            // C11 aligned_alloc requires that the size be a multiple of the alignment.
++            // Layout already checks that the size rounded up doesn't overflow isize::MAX.
++            let align = layout.align();
++            let size = layout.size().next_multiple_of(align);
++            libc::aligned_alloc(align, size) as *mut u8
+         }
+     } else {
+         #[inline]
+-- 
+2.41.0
+

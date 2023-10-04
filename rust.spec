@@ -531,6 +531,9 @@ and ensure that you'll always get a repeatable build.
 Summary:        Tool to find and fix Rust formatting issues
 Requires:       cargo
 
+# /usr/bin/rustfmt is dynamically linked against internal rustc libs
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
 # The component/package was rustfmt-preview until Rust 1.31.
 Obsoletes:      rustfmt-preview < 1.0.0
 Provides:       rustfmt-preview = %{version}-%{release}

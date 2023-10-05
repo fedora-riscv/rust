@@ -1,21 +1,19 @@
-From ab9c5148956c2b7d177cc94533370d6a01a8d15f Mon Sep 17 00:00:00 2001
+From 35187c7e6474d346eea3113c4ae34d26d6b18756 Mon Sep 17 00:00:00 2001
 From: Josh Stone <jistone@redhat.com>
 Date: Tue, 22 Aug 2023 10:42:12 -0700
 Subject: [PATCH] Skip ExpandYamlAnchors when the config is missing
 
 The dist-src tarball does not include `.github/` at all, so we can't
 check whether it needs to be regenerated.
-
-(cherry picked from commit 35187c7e6474d346eea3113c4ae34d26d6b18756)
 ---
  src/bootstrap/test.rs | 5 +++++
  1 file changed, 5 insertions(+)
 
 diff --git a/src/bootstrap/test.rs b/src/bootstrap/test.rs
-index eed7a584b603..d41850783c6d 100644
+index db3b7ffbea4e..d1018978f78c 100644
 --- a/src/bootstrap/test.rs
 +++ b/src/bootstrap/test.rs
-@@ -1150,6 +1150,11 @@ impl Step for ExpandYamlAnchors {
+@@ -1174,6 +1174,11 @@ impl Step for ExpandYamlAnchors {
      /// appropriate configuration for all our CI providers. This step ensures the tool was called
      /// by the user before committing CI changes.
      fn run(self, builder: &Builder<'_>) {
@@ -25,8 +23,8 @@ index eed7a584b603..d41850783c6d 100644
 +            return;
 +        }
          builder.info("Ensuring the YAML anchors in the GitHub Actions config were expanded");
-         try_run(
-             builder,
+         builder.run_delaying_failure(
+             &mut builder.tool_cmd(Tool::ExpandYamlAnchors).arg("check").arg(&builder.src),
 -- 
 2.41.0
 

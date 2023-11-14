@@ -762,7 +762,7 @@ end}
 %if 0%{?fedora} || 0%{?rhel} >= 8
 # The exact profiler path is version dependent, and uses LLVM-specific
 # arch names in the filename, but this find is good enough for now...
-PROFILER=$(find %{_libdir}/clang -type f -name 'libclang_rt.profile-*.a')
+PROFILER=$(find %{common_libdir}/clang -type f -name 'libclang_rt.profile-*.a')
 %endif
 
 %configure --disable-option-checking \

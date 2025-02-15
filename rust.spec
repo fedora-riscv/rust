@@ -18,6 +18,7 @@ ExclusiveArch:  %{rust_arches}
 %global bootstrap_channel 1.83.0
 %global bootstrap_date 2024-11-28
 
+
 # Only the specified arches will use bootstrap binaries.
 # NOTE: Those binaries used to be uploaded with every new release, but that was
 # a waste of lookaside cache space when they're most often unused.

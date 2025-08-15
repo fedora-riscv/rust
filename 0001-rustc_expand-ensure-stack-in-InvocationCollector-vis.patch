@@ -1,0 +1,49 @@
+From aa701b52fb9b24b7540d49e76e0376f78cc9fdfc Mon Sep 17 00:00:00 2001
+From: Josh Stone <jistone@redhat.com>
+Date: Thu, 14 Aug 2025 16:02:31 -0700
+Subject: [PATCH] rustc_expand: ensure stack in
+ `InvocationCollector::visit_expr`
+
+In Fedora, when we built rustc with PGO on ppc64le, we started failing
+the test `issue-74564-if-expr-stack-overflow.rs`. This could also be
+reproduced on other arches by setting a smaller `RUST_MIN_STACK`, so
+it's probably just unlucky that ppc64le PGO created a large stack frame
+somewhere in this recursion path. Adding an `ensure_sufficient_stack`
+solves the stack overflow.
+
+Historically, that test and its fix were added in rust-lang/rust#74708,
+which was also an `ensure_sufficient_stack` in this area of code at the
+time. However, the refactor in rust-lang/rust#92573 basically left that
+to the general `MutVisitor`, and then rust-lang/rust#142240 removed even
+that ensure call. It may be luck that our tier-1 tested targets did not
+regress the original issue across those refactors.
+
+(cherry picked from commit f68bcb376da2a34b6809ba76dad20ca400bd9966)
+---
+ compiler/rustc_expand/src/expand.rs | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/compiler/rustc_expand/src/expand.rs b/compiler/rustc_expand/src/expand.rs
+index 0474413e7626..49c9ca1f0508 100644
+--- a/compiler/rustc_expand/src/expand.rs
++++ b/compiler/rustc_expand/src/expand.rs
+@@ -14,6 +14,7 @@
+ };
+ use rustc_ast_pretty::pprust;
+ use rustc_data_structures::flat_map_in_place::FlatMapInPlace;
++use rustc_data_structures::stack::ensure_sufficient_stack;
+ use rustc_errors::PResult;
+ use rustc_feature::Features;
+ use rustc_parse::parser::{
+@@ -2428,7 +2429,7 @@ fn visit_expr(&mut self, node: &mut ast::Expr) {
+         if let Some(attr) = node.attrs.first() {
+             self.cfg().maybe_emit_expr_attr_err(attr);
+         }
+-        self.visit_node(node)
++        ensure_sufficient_stack(|| self.visit_node(node))
+     }
+ 
+     fn visit_method_receiver_expr(&mut self, node: &mut ast::Expr) {
+-- 
+2.50.1
+

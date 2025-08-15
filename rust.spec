@@ -149,6 +149,10 @@ Patch8:         0001-Don-t-always-panic-if-WASI_SDK_PATH-is-not-set-when-.patch
 # Support optimized-compiler-builtins via linking against compiler-rt builtins.
 Patch9:         0001-Allow-linking-a-prebuilt-optimized-compiler-rt-built.patch
 
+# Fix a compiler stack overflow on ppc64le with PGO
+# https://github.com/rust-lang/rust/pull/145410
+Patch10:        0001-rustc_expand-ensure-stack-in-InvocationCollector-vis.patch
+
 ### RHEL-specific patches below ###
 
 # Simple rpm macros for rust-toolset (as opposed to full rust-packaging)
@@ -702,6 +706,7 @@ rm -rf %{wasi_libc_dir}/dlmalloc/
 %patch -P7 -p1
 %patch -P8 -p1
 %patch -P9 -p1
+%patch -P10 -p1
 
 %if %with disabled_libssh2
 %patch -P100 -p1
@@ -909,11 +914,7 @@ test -r "%{profiler}"
 
 %global __x %{__python3} ./x.py
 
-# - rustc is exibiting signs of miscompilation on pwr9+pgo (root cause TBD),
-#   so we're skipping pgo on rhel ppc64le for now. See RHEL-88598 for more.
-# - Since 1.87, Fedora started getting ppc64le segfaults, and this also seems
-#   to be avoidable by skipping pgo. See bz2367960 for examples of that.
-%if %{with rustc_pgo} && !( "%{_target_cpu}" == "ppc64le" )
+%if %{with rustc_pgo}
 # Build the compiler with profile instrumentation
 %define profraw $PWD/build/profiles
 %define profdata $PWD/build/rustc.profdata

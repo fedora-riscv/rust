@@ -1,4 +1,4 @@
-From b5cdd50a21e27bde3fbbff5fe67df79b88fadb05 Mon Sep 17 00:00:00 2001
+From 4815c3cd733812bec777970ff4b1e73c2fcad1a6 Mon Sep 17 00:00:00 2001
 From: Paul Murphy <paumurph@redhat.com>
 Date: Tue, 24 Jun 2025 11:07:54 -0500
 Subject: [PATCH] Allow linking a prebuilt optimized compiler-rt builtins
@@ -7,6 +7,8 @@ Subject: [PATCH] Allow linking a prebuilt optimized compiler-rt builtins
 Extend the <target>.optimized-compiler-builtins bootstrap option to accept a
 path to a prebuilt compiler-rt builtins library, and update compiler-builtins
 to enable optimized builtins without building compiler-rt builtins.
+
+(cherry picked from commit b382478bba7b8f75c73673c239fa86a29db66223)
 ---
  bootstrap.example.toml                        |  4 +-
  .../compiler-builtins/build.rs                | 55 ++++++++++++++++---
@@ -17,10 +19,10 @@ to enable optimized builtins without building compiler-rt builtins.
  6 files changed, 87 insertions(+), 34 deletions(-)
 
 diff --git a/bootstrap.example.toml b/bootstrap.example.toml
-index 916bae8dc7d..cb80c9dd31e 100644
+index 82041167b444..a11aec1b60e5 100644
 --- a/bootstrap.example.toml
 +++ b/bootstrap.example.toml
-@@ -967,7 +967,9 @@
+@@ -1038,7 +1038,9 @@
  # sources are available.
  #
  # Setting this to `false` generates slower code, but removes the requirement for a C toolchain in
@@ -32,10 +34,10 @@ index 916bae8dc7d..cb80c9dd31e 100644
  
  # Link the compiler and LLVM against `jemalloc` instead of the default libc allocator.
 diff --git a/library/compiler-builtins/compiler-builtins/build.rs b/library/compiler-builtins/compiler-builtins/build.rs
-index 018899faf1d..3ad888ed26a 100644
+index 8f51c12b535d..b8de1789ebc7 100644
 --- a/library/compiler-builtins/compiler-builtins/build.rs
 +++ b/library/compiler-builtins/compiler-builtins/build.rs
-@@ -548,12 +548,20 @@ pub fn compile(llvm_target: &[&str], target: &Target) {
+@@ -547,12 +547,20 @@ pub fn compile(llvm_target: &[&str], target: &Target) {
              sources.extend(&[("__emutls_get_address", "emutls.c")]);
          }
  
@@ -56,7 +58,7 @@ index 018899faf1d..3ad888ed26a 100644
              None => {
                  panic!(
                      "RUST_COMPILER_RT_ROOT is not set. You may need to run \
-@@ -561,7 +569,7 @@ pub fn compile(llvm_target: &[&str], target: &Target) {
+@@ -560,7 +568,7 @@ pub fn compile(llvm_target: &[&str], target: &Target) {
                  );
              }
          };
@@ -65,7 +67,7 @@ index 018899faf1d..3ad888ed26a 100644
              panic!("RUST_COMPILER_RT_ROOT={} does not exist", root.display());
          }
  
-@@ -577,7 +585,7 @@ pub fn compile(llvm_target: &[&str], target: &Target) {
+@@ -576,7 +584,7 @@ pub fn compile(llvm_target: &[&str], target: &Target) {
          let src_dir = root.join("lib/builtins");
          if target.arch == "aarch64" && target.env != "msvc" && target.os != "uefi" {
              // See below for why we're building these as separate libraries.
@@ -74,7 +76,7 @@ index 018899faf1d..3ad888ed26a 100644
  
              // Some run-time CPU feature detection is necessary, as well.
              let cpu_model_src = if src_dir.join("cpu_model.c").exists() {
-@@ -591,20 +599,45 @@ pub fn compile(llvm_target: &[&str], target: &Target) {
+@@ -590,20 +598,45 @@ pub fn compile(llvm_target: &[&str], target: &Target) {
          let mut added_sources = HashSet::new();
          for (sym, src) in sources.map.iter() {
              let src = src_dir.join(src);
@@ -124,7 +126,7 @@ index 018899faf1d..3ad888ed26a 100644
  
          cfg.include(&builtins_dir);
  
-@@ -617,6 +650,13 @@ fn build_aarch64_out_of_line_atomics_libraries(builtins_dir: &Path, cfg: &mut cc
+@@ -616,6 +649,13 @@ fn build_aarch64_out_of_line_atomics_libraries(builtins_dir: &Path, cfg: &mut cc
                  for (model_number, model_name) in
                      &[(1, "relax"), (2, "acq"), (3, "rel"), (4, "acq_rel")]
                  {
@@ -138,7 +140,7 @@ index 018899faf1d..3ad888ed26a 100644
                      // The original compiler-rt build system compiles the same
                      // source file multiple times with different compiler
                      // options. Here we do something slightly different: we
-@@ -640,9 +680,6 @@ fn build_aarch64_out_of_line_atomics_libraries(builtins_dir: &Path, cfg: &mut cc
+@@ -639,9 +679,6 @@ fn build_aarch64_out_of_line_atomics_libraries(builtins_dir: &Path, cfg: &mut cc
                      .unwrap();
                      drop(file);
                      cfg.file(path);
@@ -149,10 +151,10 @@ index 018899faf1d..3ad888ed26a 100644
              }
          }
 diff --git a/src/bootstrap/src/core/build_steps/compile.rs b/src/bootstrap/src/core/build_steps/compile.rs
-index 4ef70dd9b97..e9393f7dcaa 100644
+index 7a5533346adf..39c9db3d6c35 100644
 --- a/src/bootstrap/src/core/build_steps/compile.rs
 +++ b/src/bootstrap/src/core/build_steps/compile.rs
-@@ -578,25 +578,31 @@ pub fn std_cargo(builder: &Builder<'_>, target: TargetSelection, stage: u32, car
+@@ -572,25 +572,31 @@ pub fn std_cargo(builder: &Builder<'_>, target: TargetSelection, stage: u32, car
      // `compiler-builtins` crate is enabled and it's configured to learn where
      // `compiler-rt` is located.
      let compiler_builtins_c_feature = if builder.config.optimized_compiler_builtins(target) {
@@ -204,10 +206,10 @@ index 4ef70dd9b97..e9393f7dcaa 100644
      } else {
          ""
 diff --git a/src/bootstrap/src/core/config/config.rs b/src/bootstrap/src/core/config/config.rs
-index d3393afcae0..5834be7643c 100644
+index 6055876c4757..588c3489f898 100644
 --- a/src/bootstrap/src/core/config/config.rs
 +++ b/src/bootstrap/src/core/config/config.rs
-@@ -1728,10 +1728,18 @@ pub fn rpath_enabled(&self, target: TargetSelection) -> bool {
+@@ -1769,10 +1769,18 @@ pub fn rpath_enabled(&self, target: TargetSelection) -> bool {
      pub fn optimized_compiler_builtins(&self, target: TargetSelection) -> bool {
          self.target_config
              .get(&target)
@@ -225,10 +227,10 @@ index d3393afcae0..5834be7643c 100644
 +    }
 +
      pub fn llvm_enabled(&self, target: TargetSelection) -> bool {
-         self.codegen_backends(target).contains(&"llvm".to_owned())
+         self.codegen_backends(target).contains(&CodegenBackendKind::Llvm)
      }
 diff --git a/src/bootstrap/src/core/config/tests.rs b/src/bootstrap/src/core/config/tests.rs
-index 50eba12aba7..c32e4384cf6 100644
+index 50eba12aba74..c32e4384cf62 100644
 --- a/src/bootstrap/src/core/config/tests.rs
 +++ b/src/bootstrap/src/core/config/tests.rs
 @@ -17,7 +17,7 @@
@@ -250,7 +252,7 @@ index 50eba12aba7..c32e4384cf6 100644
      };
      assert_eq!(
 diff --git a/src/bootstrap/src/core/config/toml/target.rs b/src/bootstrap/src/core/config/toml/target.rs
-index 41a4a815d31..022d042d271 100644
+index 69afa8af3419..5ddb8c50c146 100644
 --- a/src/bootstrap/src/core/config/toml/target.rs
 +++ b/src/bootstrap/src/core/config/toml/target.rs
 @@ -45,7 +45,7 @@ struct TomlTarget {
@@ -265,7 +267,7 @@ index 41a4a815d31..022d042d271 100644
 @@ -78,7 +78,7 @@ pub struct Target {
      pub runner: Option<String>,
      pub no_std: bool,
-     pub codegen_backends: Option<Vec<String>>,
+     pub codegen_backends: Option<Vec<CodegenBackendKind>>,
 -    pub optimized_compiler_builtins: Option<bool>,
 +    pub optimized_compiler_builtins: Option<StringOrBool>,
      pub jemalloc: Option<bool>,

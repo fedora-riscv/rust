@@ -1,4 +1,4 @@
-From aa701b52fb9b24b7540d49e76e0376f78cc9fdfc Mon Sep 17 00:00:00 2001
+From 8ff00974436f25585850e3029d8e5a3e2a8340da Mon Sep 17 00:00:00 2001
 From: Josh Stone <jistone@redhat.com>
 Date: Thu, 14 Aug 2025 16:02:31 -0700
 Subject: [PATCH] rustc_expand: ensure stack in
@@ -24,18 +24,18 @@ regress the original issue across those refactors.
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/compiler/rustc_expand/src/expand.rs b/compiler/rustc_expand/src/expand.rs
-index 0474413e7626..49c9ca1f0508 100644
+index f02aa6c120f9..0cfda7c4739f 100644
 --- a/compiler/rustc_expand/src/expand.rs
 +++ b/compiler/rustc_expand/src/expand.rs
-@@ -14,6 +14,7 @@
- };
+@@ -15,6 +15,7 @@
  use rustc_ast_pretty::pprust;
+ use rustc_attr_parsing::{EvalConfigResult, ShouldEmit};
  use rustc_data_structures::flat_map_in_place::FlatMapInPlace;
 +use rustc_data_structures::stack::ensure_sufficient_stack;
  use rustc_errors::PResult;
  use rustc_feature::Features;
  use rustc_parse::parser::{
-@@ -2428,7 +2429,7 @@ fn visit_expr(&mut self, node: &mut ast::Expr) {
+@@ -2439,7 +2440,7 @@ fn visit_expr(&mut self, node: &mut ast::Expr) {
          if let Some(attr) = node.attrs.first() {
              self.cfg().maybe_emit_expr_attr_err(attr);
          }

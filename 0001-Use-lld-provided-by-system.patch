@@ -1,4 +1,4 @@
-From 0641fdd833785914f1ead6e1ab374beea5b55437 Mon Sep 17 00:00:00 2001
+From e9405caf32dfb31bf17c3da0299df515a3755107 Mon Sep 17 00:00:00 2001
 From: Josh Stone <jistone@redhat.com>
 Date: Fri, 16 Aug 2024 10:12:58 -0700
 Subject: [PATCH] Use lld provided by system
@@ -12,12 +12,12 @@ Subject: [PATCH] Use lld provided by system
  5 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/compiler/rustc_target/src/spec/base/wasm.rs b/compiler/rustc_target/src/spec/base/wasm.rs
-index 88e7af5e669..14100a683f9 100644
+index 7ede45766ea..b22362227bb 100644
 --- a/compiler/rustc_target/src/spec/base/wasm.rs
 +++ b/compiler/rustc_target/src/spec/base/wasm.rs
-@@ -86,8 +86,7 @@ macro_rules! args {
-         // arguments just yet
-         limit_rdylib_exports: false,
+@@ -81,8 +81,7 @@ macro_rules! args {
+         // threaded model which will legalize atomics to normal operations.
+         singlethread: true,
  
 -        // we use the LLD shipped with the Rust toolchain by default
 -        linker: Some("rust-lld".into()),
@@ -76,5 +76,5 @@ index 0cf6a879462..3677fc662de 100644
      // We disable MMX and SSE for now, even though UEFI allows using them. Problem is, you have to
      // enable these CPU features explicitly before their first use, otherwise their instructions
 -- 
-2.49.0
+2.51.0
 

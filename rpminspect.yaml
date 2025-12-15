@@ -12,12 +12,14 @@ unicode:
         # they are tests for those.
         - rustc-*-src/tests/ui/lint/issue-90614-accept-allow-text-direction-codepoint-in-comment-lint.rs
         - rustc-*-src/tests/ui/parser/unicode-control-codepoints.rs
+        - rustc-*-src/tests/ui/parser/macro/unicode-control-codepoints-macros.rs
+        - rustc-*-src/tests/ui/parser/macro/auxiliary/unicode-control.rs
         - rustc-*-src/compiler/rustc_lint/src/hidden_unicode_codepoints.rs
         - rustc-*-src/compiler/rustc_lint_defs/src/builtin.rs
         - rustc-*-src/vendor/idna/tests/IdnaTestV2.txt
         - rustc-*-src/vendor/idna-*/tests/IdnaTestV2.txt
-        - rustc-*-src/vendor/mdbook*/tests/dummy_book/src/first/unicode.md
-        - rustc-*-src/vendor/mdbook*/tests/searchindex_fixture.json
+        - rustc-*-src/vendor/mdbook*/tests/testsuite/search/reasonable_search_index/expected_index.js
+        - rustc-*-src/vendor/mdbook*/tests/testsuite/search/reasonable_search_index/src/first/unicode.md
         - rustc-*-src/vendor/wast-*/tests/parse-fail/confusing-string?.wat
         - rustc-*-src/vendor/wast-*/tests/parse-fail/confusing-block-comment?.wat
         - rustc-*-src/vendor/wast-*/tests/parse-fail/confusing-line-comment?.wat

@@ -34,8 +34,8 @@ diff -up rustc-beta-src/src/tools/cargo/Cargo.toml.orig rustc-beta-src/src/tools
 --- rustc-beta-src/src/tools/cargo/Cargo.toml.orig	2025-08-16 15:47:14.000000000 -0700
 +++ rustc-beta-src/src/tools/cargo/Cargo.toml	2025-08-18 17:33:02.401743230 -0700
 @@ -46,7 +46,7 @@ curl = "0.4.48"
- curl-sys = "0.4.82"
- filetime = "0.2.25"
+ curl-sys = "0.4.83"
+ filetime = "0.2.26"
  flate2 = { version = "1.1.2", default-features = false, features = ["zlib-rs"] }
 -git2 = "0.20.2"
 +git2 = { version = "0.20.2", default-features = false, features = ["https"] }

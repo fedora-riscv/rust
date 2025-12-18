@@ -1,0 +1,42 @@
+--- rustc-beta-src/src/tools/cargo/Cargo.lock.orig	2025-12-18 15:41:44.817782261 -0600
++++ rustc-beta-src/src/tools/cargo/Cargo.lock	2025-12-18 15:45:06.653151595 -0600
+@@ -2775,7 +2775,6 @@ checksum = "1c42fe03df2bd3c53a3a9c7317ad
+ dependencies = [
+  "cc",
+  "libc",
+- "libssh2-sys",
+  "libz-sys",
+  "openssl-sys",
+  "pkg-config",
+@@ -2822,20 +2821,6 @@ dependencies = [
+  "pkg-config",
+  "vcpkg",
+ ]
+-
+-[[package]]
+-name = "libssh2-sys"
+-version = "0.3.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "220e4f05ad4a218192533b300327f5150e809b54c4ec83b5a1d91833601811b9"
+-dependencies = [
+- "cc",
+- "libc",
+- "libz-sys",
+- "openssl-sys",
+- "pkg-config",
+- "vcpkg",
+-]
+ 
+ [[package]]
+ name = "libz-rs-sys"
+--- rustc-beta-src/src/tools/cargo/Cargo.toml.orig	2025-12-18 15:41:49.665815151 -0600
++++ rustc-beta-src/src/tools/cargo/Cargo.toml	2025-12-18 15:45:45.253541794 -0600
+@@ -48,7 +48,7 @@ curl = "0.4.49"
+ curl-sys = "0.4.83"
+ filetime = "0.2.26"
+ flate2 = { version = "1.1.5", default-features = false, features = ["zlib-rs"] }
+-git2 = "0.20.2"
++git2 = { version = "0.20.2", default-features = false, features = ["https"] }
+ git2-curl = "0.21.0"
+ # When updating this, also see if `gix-transport` further down needs updating or some auth-related tests will fail.
+ gix = { version = "0.74.1", default-features = false, features = ["progress-tree", "parallel", "dirwalk", "status"] }

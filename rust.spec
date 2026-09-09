@@ -1,6 +1,6 @@
 Name:           rust
 Version:        1.95.0
-Release:        %autorelease
+Release:        1.rv64%{?dist}
 Summary:        The Rust Programming Language
 License:        (Apache-2.0 OR MIT) AND (Artistic-2.0 AND BSD-3-Clause AND ISC AND MIT AND MPL-2.0 AND Unicode-3.0)
 # ^ written as: (rust itself) and (bundled libraries)
@@ -672,6 +672,17 @@ the Cargo package manager, and a few convenience macros for rpm builds.
 
 %endif
 
+
+# riscv64: the auto debugsource subpackage can never be filled for rust.
+# debugedit logs "Unknown DW_FORM_GNU_str_index" on the fission std artifacts
+# (split-debuginfo defaults to unpacked on linux) and rust's /rustc/<hash>
+# virtual source paths yield zero extractable sources, so debugsourcefiles.list
+# stays empty and the debugsource %files fails with "Empty %files file".
+# find-debuginfo tolerates the debugedit errors and gdb reads the resulting
+# .debug files fine, so just skip this subpackage; keep rust-debuginfo.
+%ifarch riscv64
+%undefine _debugsource_packages
+%endif
 
 %prep
 %gpgverify -k 2 -s 1 -d 0
